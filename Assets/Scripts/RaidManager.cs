@@ -41,7 +41,7 @@ public class RaidManager : MonoBehaviour
         {
             if (gm.units.Count >= gm.MaxUnits)
             {
-                gm.Log("Raid won (" + total + " vs " + enemy + ") tapi facility penuh, tidak ada capture");
+                gm.Log("Raid won (" + total + " vs " + enemy + ") but the facility is full, no capture");
             }
             else
             {

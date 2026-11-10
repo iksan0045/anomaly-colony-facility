@@ -109,7 +109,7 @@ public class UIManager : MonoBehaviour
         raidButton.interactable = raid.CooldownLeft <= 0;
         raidLabel.text = raid.CooldownLeft > 0
             ? "RAID  (cooldown " + raid.CooldownLeft + ")"
-            : "RAID  (power kita " + raid.FighterPower + " vs musuh " + raid.EnemyPower + ")";
+            : "RAID  (our power " + raid.FighterPower + " vs enemy " + raid.EnemyPower + ")";
 
         var sel = grid.Selected;
         if (sel == null)
