@@ -33,8 +33,8 @@ public static class GameConfig
     public const int RaidPowerPerRaid = 2;
     public const int FighterPowerLoss = 2;
 
-    public const float BreedChanceBreeder = 0.9f;   // pasangan Breeder
-    public const float BreedChanceOther   = 0.4f;   // pasangan Producer/Fighter
+    public const float BreedChanceBreeder = 0.6f;   // pasangan Breeder
+    public const float BreedChanceOther   = 0.2f;   // pasangan Producer/Fighter
 
     // di ColorOf(UnitType), tambah sebelum default:
 
