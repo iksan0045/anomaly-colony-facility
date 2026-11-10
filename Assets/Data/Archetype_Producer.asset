@@ -15,9 +15,13 @@ MonoBehaviour:
   type: 0
   modelVariants:
   - {fileID: -1728013695380148634, guid: 046a077919a6e2047ae2044a2fb631f6, type: 3}
+  - {fileID: -1728013695380148634, guid: 08d667a165ff9d849805122a272e96df, type: 3}
   animatorOverride: {fileID: 9100000, guid: 121bfc690b5a7984886dd8e525a9a994, type: 2}
-  scaleRange: {x: 0.76, y: 0.78}
-  breedClip: {fileID: 0}
+  scaleRange: {x: 0.7, y: 0.7}
+  breedClip: {fileID: 7400000, guid: b96481a57529c5f468543b6d5a4e311d, type: 2}
+  leaderBreedClip: {fileID: 7400000, guid: 9975e1cdb8bd92d46a3e7772a1ef9457, type: 2}
+  leaderFacesMe: 1
+  breedTicks: 14
   powerRange: {x: 1, y: 5}
   fertilityRange: {x: 1, y: 6}
   moveSpeedRange: {x: 0.8, y: 1.6}

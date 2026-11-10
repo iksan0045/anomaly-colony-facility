@@ -10,6 +10,6 @@ public class Cell_Control : CellBase
 
     protected override void DescribeDetails(StringBuilder sb)
     {
-        sb.AppendLine("Unlock tipe cell baru, lalu +" + GameConfig.ControlUnitBonus + " max unit");
+        sb.AppendLine("Unlocks new cell types +" + GameConfig.ControlUnitBonus + " max units");
     }
 }

@@ -41,11 +41,16 @@ public class GameManager : MonoBehaviour
         Materials = GameConfig.StartMaterials;
         foreach (var t in GameConfig.StartUnlocked) unlocked.Add(t);
 
+        if (!SaveManager.LoadPending) SpawnStartingUnits();   // saat load, unit datang dari save
+    }
+
+    public void SpawnStartingUnits()
+    {
         AddUnit(UnitData.Create(UnitType.Producer));
         AddUnit(UnitData.Create(UnitType.Fighter));
         AddUnit(UnitData.Create(UnitType.Breeder));
         AddUnit(UnitData.Create(UnitType.Leader));
-        Log("Fasilitas siap. Bangun cell, lalu assign unit.");
+        Log("Facility ready. Build cells, then assign units.");
     }
 
     void Update()
@@ -57,6 +62,22 @@ public class GameManager : MonoBehaviour
             accumulator -= GameConfig.TickSeconds;
             DoTick();
         }
+    }
+
+    public bool Starving { get { return starving; } }   // lewati jika sudah ada dari Step 2
+    public int StorageCount { get { return storageCount; } }
+    public int ControlCount { get { return controlCount; } }
+    public int BonusUnits { get { return bonusUnits; } }
+    public IEnumerable<CellType> UnlockedTypes { get { return unlocked; } }
+
+    public void RestoreState(int tick, int energy, int materials, int storage, int control, int bonus,
+                            IEnumerable<CellType> unlockedTypes, bool wasStarving)
+    {
+        Tick = tick; Energy = energy; Materials = materials;
+        storageCount = storage; controlCount = control; bonusUnits = bonus;
+        unlocked.Clear();
+        foreach (var t in unlockedTypes) unlocked.Add(t);
+        starving = wasStarving;
     }
 
     void DoTick()
@@ -80,7 +101,7 @@ public class GameManager : MonoBehaviour
             if (before >= GameConfig.MoodLowThreshold && u.mood < GameConfig.MoodLowThreshold)
                 Log("Mood low: " + u.Label);
         }
-        if (anyStarving && !starving) Log("Material habis! Unit kelaparan.");
+        if (anyStarving && !starving) Log("Material depleted - units starving!");
         starving = anyStarving;
 
         if (RaidManager.Instance != null) RaidManager.Instance.OnTick();
@@ -130,7 +151,7 @@ public class GameManager : MonoBehaviour
         if (sp != null)
         {
             var s = UnitData.CreateSpecial(sp);
-            Log("Unit spesial: " + s.Label + "!");
+            Log("Special unit: " + s.Label + "!");
             return s;
         }
         return UnitData.Create(RandomType(), power, fertility);
@@ -144,7 +165,7 @@ public class GameManager : MonoBehaviour
 
     public void OnCellPlaced(CellBase c)
     {
-        Log("Cell dibangun: " + GameConfig.Label(c.Type));
+        Log("Cell built: " + GameConfig.Label(c.Type));
         c.OnPlaced(this);
         NotifyChanged();
     }
@@ -152,7 +173,7 @@ public class GameManager : MonoBehaviour
     public void RegisterStorage()
     {
         storageCount++;
-        Log("Max resource jadi " + MaxResource);
+        Log("Max resource is now " + MaxResource);
     }
 
     public void RegisterControl()
@@ -167,7 +188,7 @@ public class GameManager : MonoBehaviour
         else
         {
             bonusUnits += GameConfig.ControlUnitBonus;
-            Log("Max unit jadi " + MaxUnits);
+            Log("Max units is now " + MaxUnits);
         }
     }
 

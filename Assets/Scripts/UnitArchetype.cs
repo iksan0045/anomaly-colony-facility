@@ -17,7 +17,13 @@ public class UnitArchetype : ScriptableObject
     [Header("Animasi khusus")]
     [Tooltip("Dimainkan unit ini saat berada di Breeding cell (loop). Rig harus sama dengan model.")]
     public AnimationClip breedClip;
-    public AnimationClip leaderClip;
+    [Tooltip("Clip yang dimainkan LEADER saat breeding dengan unit bertipe ini. Clip untuk unit ini sendiri tetap di Breed Clip.")]
+    public AnimationClip leaderBreedClip;
+    [Tooltip("true = saat breeding, Leader menghadap berlawanan dengan unit ini (berhadapan). false = searah.")]
+    public bool leaderFacesMe = false;
+    [Header("Breeding")]
+    [Tooltip("Lama breeding (tick) saat unit ini jadi pasangan Leader. 0 = pakai GameConfig.BreedTicks.")]
+    [Min(0)] public int breedTicks = 10;
 
     [Header("Stat (inklusif)")]
     public Vector2Int powerRange = new Vector2Int(1, 10);

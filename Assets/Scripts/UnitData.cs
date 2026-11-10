@@ -21,6 +21,8 @@ public class UnitData : ScriptableObject
     public string displayName;
     public SpecialUnit special;
 
+    public static int NextId { get { return nextId; } }
+    public static void SetNextId(int n) { nextId = n; }
     public static void ResetIds() { nextId = 1; }
 
     public static UnitData Create(UnitType type, int power = -1, int fertility = -1)
@@ -52,6 +54,34 @@ public class UnitData : ScriptableObject
         {
             if (special != null && special.breedClip != null) return special.breedClip;
             return archetype != null ? archetype.breedClip : null;
+        }
+    }
+
+    public AnimationClip LeaderBreedClip
+    {
+        get
+        {
+            if (special != null && special.leaderBreedClip != null) return special.leaderBreedClip;
+            return archetype != null ? archetype.leaderBreedClip : null;
+        }
+    }
+
+    public bool LeaderFacesMe
+    {
+        get
+        {
+            if (special != null) return special.leaderFacesMe;
+            return archetype != null && archetype.leaderFacesMe;
+        }
+    }
+
+    public int BreedTicks
+    {
+        get
+        {
+            if (special != null && special.breedTicks > 0) return special.breedTicks;
+            if (archetype != null && archetype.breedTicks > 0) return archetype.breedTicks;
+            return GameConfig.BreedTicks;
         }
     }
 

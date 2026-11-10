@@ -24,6 +24,8 @@ public class RaidManager : MonoBehaviour
         if (CooldownLeft > 0) CooldownLeft--;
     }
 
+    public void Restore(int count, int cooldown) { RaidCount = count; CooldownLeft = cooldown; }
+
     public void DoRaid()
     {
         if (CooldownLeft > 0) return;

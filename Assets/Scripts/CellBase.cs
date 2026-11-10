@@ -36,10 +36,14 @@ public abstract class CellBase : MonoBehaviour
     [FormerlySerializedAs("activeClip")]   // clip yang sudah kamu drag di prefab tidak hilang
     public AnimationClip unitClip;
 
+    protected virtual Vector3 UnitOffset(UnitData u) { return Vector3.zero; }
     ClipPlayer cellPlayer;
+    [Tooltip("true = semua unit di cell ini memakai Slot_0 (posisi dan rotasi sama), mis. untuk animasi breeding berpasangan.")]
+    public bool shareFirstSlot = false;
 
     /// Subclass override: kapan animasi cell berjalan.
     protected virtual bool IsActive { get { return false; } }
+    protected virtual float UnitYaw(UnitData u) { return 0f; }
 
     // ---------- Placement ----------
 
@@ -48,6 +52,14 @@ public abstract class CellBase : MonoBehaviour
 
     /// Kapan clip itu dimainkan. Default: selama unit ada di cell.
     protected virtual bool ShouldAnimate(UnitData u) { return true; }
+
+    void Awake()
+    {
+        int needed = shareFirstSlot ? 1 : Capacity;
+        if (unitSlots != null && unitSlots.Length > 0 && unitSlots.Length < needed)
+        Debug.LogWarning(name + ": unitSlots (" + unitSlots.Length + ") kurang dari yang dibutuhkan (" + needed + ")", this);   
+    }
+
 
     void Update()
     {
@@ -113,8 +125,8 @@ public abstract class CellBase : MonoBehaviour
     public virtual bool CanAccept(UnitData u, out string reason)
     {
         reason = null;
-        if (Capacity == 0) { reason = GameConfig.Label(Type) + " tidak menampung unit"; return false; }
-        if (units.Count >= Capacity) { reason = "Cell penuh"; return false; }
+        if (Capacity == 0) { reason = GameConfig.Label(Type) + " cannot hold units"; return false; }
+        if (units.Count >= Capacity) { reason = "Cell is full"; return false; }
         return true;
     }
 
@@ -131,7 +143,7 @@ public abstract class CellBase : MonoBehaviour
         LayoutUnits();
         OnUnitsChanged();
         // CellBase.AssignUnit, sebelum NotifyChanged()
-        GameManager.Instance.Log(u.Label + " masuk " + GameConfig.Label(Type));
+        GameManager.Instance.Log(u.Label + " assigned to " + GameConfig.Label(Type));
         GameManager.Instance.NotifyChanged();
         return true;
     }
@@ -154,9 +166,13 @@ public abstract class CellBase : MonoBehaviour
             var c = units[i].controller;
             if (c == null) continue;
 
-            if (unitSlots != null && i < unitSlots.Length && unitSlots[i] != null)
+            Transform slot = null;
+            if (unitSlots != null && unitSlots.Length > 0)
+                slot = shareFirstSlot ? unitSlots[0] : (i < unitSlots.Length ? unitSlots[i] : null);
+
+            if (slot != null)
             {
-                c.transform.SetPositionAndRotation(unitSlots[i].position, unitSlots[i].rotation);
+                c.transform.SetPositionAndRotation(slot.position, slot.rotation);
             }
             else   // fallback lama
             {
@@ -164,6 +180,9 @@ public abstract class CellBase : MonoBehaviour
                 c.transform.localPosition = new Vector3(offset, Height, 0f);
                 c.transform.localRotation = Quaternion.identity;
             }
+            var baseRot = c.transform.rotation;                                   // rotasi slot
+            c.transform.position += baseRot * UnitOffset(units[i]);               // geser di sumbu lokal slot
+            c.transform.rotation = baseRot * Quaternion.Euler(0f, UnitYaw(units[i]), 0f);
         }
     }
 

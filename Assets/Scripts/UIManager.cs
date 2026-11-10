@@ -133,6 +133,31 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    void EnsureSaveButtons()
+    {
+        var bar = topText.transform.parent as RectTransform;
+        string[] names = { "Save", "Load", "New" };
+        for (int i = 0; i < 3; i++)
+        {
+            int index = i;
+            Text lbl;
+            var b = MakeButton(bar, names[i], 26, null, out lbl);
+            var rt = b.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(1, 0.5f);
+            rt.pivot = new Vector2(1, 0.5f);
+            rt.sizeDelta = new Vector2(60, 26);
+            rt.anchoredPosition = new Vector2(-8 - (2 - i) * 66, 0);
+            b.onClick.AddListener(() =>
+            {
+                var s = SaveManager.Instance;
+                if (s == null) return;
+                if (index == 0) s.SaveNow();
+                else if (index == 1) s.LoadGame();
+                else s.NewGame();
+            });
+        }
+    }
+
     void RebuildRight(CellBase sel)
     {
         for (int i = rightPanel.childCount - 1; i >= 0; i--)

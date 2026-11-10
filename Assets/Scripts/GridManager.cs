@@ -168,15 +168,29 @@ public class GridManager : MonoBehaviour
             && occupancy[x, z] == null;
     }
 
+    public CellBase PlaceForLoad(CellType t, Vector2Int o, Vector2Int s)
+    {
+        var prefab = PrefabOf(t);
+        if (prefab == null) return null;
+
+        var cell = Instantiate(prefab, cellRoot);
+        cell.Init(o, s);
+        cells.Add(cell);
+        for (int x = o.x; x < o.x + s.x; x++)
+        for (int y = o.y; y < o.y + s.y; y++)
+            occupancy[x, y] = cell;
+        return cell;
+    }
+
     void TryPlace(CellType t, Vector2Int o)
     {
         var gm = GameManager.Instance;
         var prefab = PrefabOf(t);
         if (prefab == null) return;
 
-        if (!CanPlace(o, placeSize)) { gm.Log("Tidak bisa menaruh di sini"); return; }
+        if (!CanPlace(o, placeSize)) { gm.Log("Can't place here"); return; }
         int cost = GameConfig.EnergyCost(t);
-        if (!gm.SpendEnergy(cost)) { gm.Log("Energy kurang (butuh " + cost + ")"); return; }
+        if (!gm.SpendEnergy(cost)) { gm.Log("Not enough Energy  (need " + cost + ")"); return; }
 
         var cell = Instantiate(prefab, cellRoot);
         cell.Init(o, placeSize);

@@ -11,6 +11,6 @@ public class Cell_Detention : CellBase
 
     protected override void DescribeDetails(StringBuilder sb)
     {
-        sb.AppendLine("Mood +" + GameConfig.MoodDetentionPerTick + "/tick untuk unit di dalam");
+        sb.AppendLine("Mood +" + GameConfig.MoodDetentionPerTick + "/tick for units inside");
     }
 }

@@ -7,6 +7,8 @@ public class Cell_Breeding : CellBase
     public int breedProgress;
 
     public override CellType Type { get { return CellType.Breeding; } }
+    [Tooltip("Geser Leader pada sumbu Z (forward) Slot_0.")]
+    public float leaderOffsetZ = 0.133f;
 
     public override bool CanAccept(UnitData u, out string reason)
     {
@@ -16,27 +18,51 @@ public class Cell_Breeding : CellBase
         bool hasLeader = units.Exists(x => x.type == UnitType.Leader);
         bool hasOther  = units.Exists(x => x.type != UnitType.Leader);
 
-        if (isLeader && hasLeader)  { reason = "Sudah ada Leader"; return false; }
-        if (!isLeader && hasOther)  { reason = "Pasangan harus Leader"; return false; } // blok sesama non-Leader
+        if (isLeader && hasLeader)  { reason = "Leader already inside"; return false; }
+        if (!isLeader && hasOther)  { reason = "Partner must be the Leader"; return false; } // blok sesama non-Leader
         return true;
+    }
+
+    int Duration
+    {
+        get
+        {
+            var partner = units.Find(u => u.type != UnitType.Leader);
+            return partner != null ? partner.BreedTicks : GameConfig.BreedTicks;
+        }
     }
 
     public override void OnTick(GameManager gm)
     {
-        // wajib 1 Leader + 1 unit lain
-        if (units.Count < 2 || !units.Exists(u => u.type == UnitType.Leader)) { breedProgress = 0; return; }
+        if (!PairValid) { breedProgress = 0; return; }
 
-        if (breedProgress < GameConfig.BreedTicks) breedProgress++;
-        if (breedProgress < GameConfig.BreedTicks) return;
+        int duration = Duration;
+        if (breedProgress < duration) breedProgress++;
+        if (breedProgress < duration) return;
 
-        if (gm.units.Count >= gm.MaxUnits) return;   // facility penuh: tunggu, roll belum dipakai
+        if (gm.units.Count >= gm.MaxUnits) return;   // facility penuh: tunggu, jangan keluar dulu
 
         var partner = units.Find(u => u.type != UnitType.Leader);
         float chance = partner.type == UnitType.Breeder ? GameConfig.BreedChanceBreeder
                                                         : GameConfig.BreedChanceOther;
         if (Random.value < chance) gm.TrySpawnBred(units[0], units[1]);
-        else gm.Log("Breeding gagal");
-        breedProgress = 0;
+        else gm.Log("Breeding fail no child");
+
+        gm.Log("Breeding complete, units released.");
+        EjectAll();
+    }
+
+
+    void EjectAll()
+    {
+        foreach (var u in units.ToArray()) RemoveUnit(u);   // salinan: list diubah saat iterasi
+    }
+
+    protected override void DescribeDetails(StringBuilder sb)
+    {
+        if (!PairValid) sb.AppendLine("Needs 1 Leader + 1 other unit (Breeder: 90%, others: 40%)");
+        else if (breedProgress >= Duration) sb.AppendLine("Ready, waiting for a free unit slot (facility full)");
+        else sb.AppendLine("Breeding: " + breedProgress + "/" + Duration + " tick");
     }
 
     bool PairValid { get { return units.Count == 2 && units.Exists(u => u.type == UnitType.Leader); } }
@@ -48,14 +74,33 @@ public class Cell_Breeding : CellBase
         //SetUnitsBreeding(PairValid);
     }
 
-    protected override AnimationClip ClipFor(UnitData u) { return u.BreedClip; }
+    protected override AnimationClip ClipFor(UnitData u)
+    {
+        if (u.type != UnitType.Leader) return u.BreedClip;      // pasangan: clip miliknya sendiri
+
+        var partner = units.Find(x => x != u);                  // Leader: clip dari data pasangannya
+        return (partner != null && partner.LeaderBreedClip != null) ? partner.LeaderBreedClip : u.BreedClip;
+    }
+
+    bool IsFlipped(UnitData leader)
+    {
+        if (leader.type != UnitType.Leader) return false;
+        var partner = units.Find(x => x != leader);
+        return partner != null && partner.LeaderFacesMe;
+    }
+
+    protected override float UnitYaw(UnitData u)
+    {
+        return IsFlipped(u) ? 180f : 0f;
+    }
+
+    protected override Vector3 UnitOffset(UnitData u)
+    {
+        if (u.type != UnitType.Leader) return Vector3.zero;
+        float z = IsFlipped(u) ? -leaderOffsetZ : leaderOffsetZ;   // berhadapan: jarak dibalik
+        return new Vector3(0f, 0f, z);
+    }
 
     
 
-    protected override void DescribeDetails(StringBuilder sb)
-    {
-        if (units.Count < 2) sb.AppendLine("Butuh 1 Leader + 1 unit lain (Breeder: 90%, lainnya: 40%)");
-        else if (breedProgress >= GameConfig.BreedTicks) sb.AppendLine("Siap, menunggu slot unit (facility penuh)");
-        else sb.AppendLine("Breeding: " + breedProgress + "/" + GameConfig.BreedTicks + " tick");
-    }
 }

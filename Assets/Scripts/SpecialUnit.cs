@@ -19,7 +19,12 @@ public class SpecialUnit : ScriptableObject
     public RuntimeAnimatorController animatorOverride;
     [Tooltip("Opsional. Kosong = pakai breedClip archetype tipenya.")]
     public AnimationClip breedClip;
+    [Tooltip("Clip yang dimainkan LEADER saat breeding dengan unit bertipe ini. Clip untuk unit ini sendiri tetap di Breed Clip.")]
+    public AnimationClip leaderBreedClip;
+    public bool leaderFacesMe = false;
     public float scale = 1f;
+    [Tooltip("Lama breeding (tick). 0 = ikut archetype tipenya.")]
+    [Min(0)] public int breedTicks = 0;
 
     [Header("Stat tetap")]
     [Range(1, 10)] public int power = 8;

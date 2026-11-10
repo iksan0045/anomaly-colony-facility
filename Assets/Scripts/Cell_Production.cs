@@ -8,8 +8,8 @@ public class Cell_Production : CellBase
     public override bool CanAccept(UnitData u, out string reason)
     {
         if (!base.CanAccept(u, out reason)) return false;
-        if (u.type == UnitType.Breeder || u.type == UnitType.Leader) { reason = "Unit ini tidak bisa produksi"; return false; }
-        if (u.type == UnitType.Breeder) { reason = "Breeder tidak bisa produksi"; return false; }
+        if (u.type == UnitType.Breeder || u.type == UnitType.Leader) { reason = "This unit cannot produce energy"; return false; }
+        if (u.type == UnitType.Breeder) { reason = "Breeder cannot produce energy"; return false; }
         return true;
     }
 
