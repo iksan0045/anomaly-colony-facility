@@ -7,6 +7,8 @@ using UnityEngine;
 public class SpecialUnit : ScriptableObject
 {
     public string displayName = "Special";
+    [Header("Profil")]
+    public Sprite portrait;
     [Tooltip("Producer/Fighter/Breeder. Leader tidak dipakai di sini.")]
     public UnitType type = UnitType.Fighter;
     [Tooltip("true = hanya boleh ada satu di fasilitas.")]

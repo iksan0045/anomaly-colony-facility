@@ -125,8 +125,8 @@ public class GridManager : MonoBehaviour
             ghostRenderer.material.color = valid ? new Color(0.5f, 1f, 0.5f) : new Color(1f, 0.3f, 0.3f);
 
             if (overUI) return;
-            if (Input.GetMouseButtonDown(1) && placeSize.x != placeSize.y)
-                placeSize = new Vector2Int(placeSize.y, placeSize.x);
+            //if (Input.GetMouseButtonDown(1) && placeSize.x != placeSize.y)
+             //   placeSize = new Vector2Int(placeSize.y, placeSize.x);
             if (Input.GetMouseButtonDown(0)) TryPlace(t, tile);
         }
         else if (Input.GetMouseButtonDown(0) && !overUI)

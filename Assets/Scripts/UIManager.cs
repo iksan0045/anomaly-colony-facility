@@ -56,7 +56,10 @@ public class UIManager : MonoBehaviour
         if (EventSystem.current == null)
             new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
 
-        raidButton.onClick.AddListener(() => raid.DoRaid());
+        var rp = new GameObject("RaidPanel", typeof(RectTransform)).AddComponent<RaidPanel>();
+        rp.transform.SetParent(transform, false);
+        rp.Build();
+        raidButton.onClick.AddListener(() => rp.Open());
         foreach (var p in palette)
         {
             CellType type = p.type;
@@ -108,14 +111,14 @@ public class UIManager : MonoBehaviour
 
         raidButton.interactable = raid.CooldownLeft <= 0;
         raidLabel.text = raid.CooldownLeft > 0
-            ? "RAID  (cooldown " + raid.CooldownLeft + ")"
-            : "RAID  (our power " + raid.FighterPower + " vs enemy " + raid.EnemyPower + ")";
+            ? "RAID  (facility recovering " + raid.CooldownLeft + ")"
+            : "RAID  -  " + raid.CurrentTarget.displayName;
 
         var sel = grid.Selected;
         if (sel == null)
             selectedInfo.text = grid.Placing.HasValue
-                ? "Placing: click the grid.\nRight-click = rotate.\nEsc / click the button again = cancel."
-                : "Click a cell to see its details.";
+                ? "Placing: click the grid.\nEsc / click the button again = cancel."
+                : "Click a cell to see its details."; //\nRight-click = rotate.
         else
             selectedInfo.text = sel.Describe();
 
@@ -173,7 +176,9 @@ public class UIManager : MonoBehaviour
             foreach (var u in new List<UnitData>(sel.units))
             {
                 UnitData unit = u;
-                MakeButton(rightPanel, "Release: " + u.Label, 26, () => sel.RemoveUnit(unit), out unused);
+                Text lbl;
+                var b = MakeButton(rightPanel, "Release: " + u.Label, 26, () => sel.RemoveUnit(unit), out lbl);
+                UnitPortraitUI.Attach(b, lbl, unit);
             }
         }
 
@@ -185,10 +190,17 @@ public class UIManager : MonoBehaviour
         {
             UnitData unit = u;
             string text = u.Label + "  P" + u.power;
+
             if (sel == null)
+            {
                 Label(rightPanel, "Free", 13, TextAnchor.MiddleLeft, "- " + text);
+            }
             else
-                MakeButton(rightPanel, "Assign: " + text, 26, () => sel.AssignUnit(unit), out unused);
+            {
+                Text lbl;
+                var b = MakeButton(rightPanel, "Assign: " + text, 26, () => sel.AssignUnit(unit), out lbl);
+                UnitPortraitUI.Attach(b, lbl, unit);
+            }
         }
     }
 

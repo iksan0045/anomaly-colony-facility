@@ -10,6 +10,8 @@ public class UnitDatabase : ScriptableObject
     [Header("Unit spesial")]
     public SpecialUnit[] specials;
     [Range(0f, 1f)] public float specialChance = 0.1f;  
+    [Header("Raid")]
+    public RaidTarget[] raidTargets;
 
     public UnitArchetype Get(UnitType t)
     {

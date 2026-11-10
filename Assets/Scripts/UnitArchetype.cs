@@ -8,6 +8,9 @@ public class UnitArchetype : ScriptableObject
 {
     public UnitType type;
 
+    [Header("Profil")]
+    [Tooltip("Foto profil di daftar unit. Import sebagai Sprite (2D and UI), disarankan persegi (mis. 128x128).")]
+    public Sprite portrait;
     [Header("Tampilan")]
     [Tooltip("Kosong = pakai bola grey-box. Beberapa elemen = tiap unit dapat model acak (variasi).")]
     public GameObject[] modelVariants;

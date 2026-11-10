@@ -139,7 +139,7 @@ public class GameManager : MonoBehaviour
         if (units.Count >= MaxUnits) return false;
         int power = Mathf.RoundToInt((a.power + b.power) / 2f) + Random.Range(-2, 3); // -2..+2
         int fert = Mathf.RoundToInt((a.fertility + b.fertility) / 2f) + Random.Range(-1, 2);
-        var u = AddUnit(RollNewUnit(power, fert));
+        var u = AddUnit(UnitData.Create(RandomType(), power, fert));
         Log("Unit bred: " + u.Label + " (P" + u.power + ")");
         NotifyChanged();
         return true;

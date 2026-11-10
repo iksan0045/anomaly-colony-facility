@@ -138,6 +138,7 @@ public class SaveManager : MonoBehaviour
                 raidCount = raid.RaidCount,
                 raidCooldown = raid.CooldownLeft,
                 log = gm.LogLines.ToArray(),
+                raidTarget = raid.CurrentTarget.name,
             };
 
             foreach (var u in gm.units)
@@ -221,7 +222,7 @@ public class SaveManager : MonoBehaviour
             // 1. State global
             gm.RestoreState(d.tick, d.energy, d.materials, d.storageCount, d.controlCount, d.bonusUnits,
                             d.unlocked.Select(i => (CellType)i), d.starving);
-            raid.Restore(d.raidCount, d.raidCooldown);
+            raid.Restore(d.raidCount, d.raidCooldown, d.raidTarget);
 
             // 2. Cell
             var cells = new List<CellBase>();

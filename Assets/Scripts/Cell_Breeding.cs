@@ -48,7 +48,7 @@ public class Cell_Breeding : CellBase
         if (Random.value < chance) gm.TrySpawnBred(units[0], units[1]);
         else gm.Log("Breeding fail no child");
 
-        gm.Log("Breeding complete, units released.");
+        gm.Log("Breeding succed child born, units released.");
         EjectAll();
     }
 
@@ -65,7 +65,6 @@ public class Cell_Breeding : CellBase
         else sb.AppendLine("Breeding: " + breedProgress + "/" + Duration + " tick");
     }
 
-    bool PairValid { get { return units.Count == 2 && units.Exists(u => u.type == UnitType.Leader); } }
 
     // ganti OnUnitsChanged yang sudah ada:
     protected override void OnUnitsChanged()
@@ -74,12 +73,23 @@ public class Cell_Breeding : CellBase
         //SetUnitsBreeding(PairValid);
     }
 
+    bool PairValid
+    {
+        get { return units.Count == 2 && units.Exists(u => u.type == UnitType.Leader); }
+    }
+
+    protected override bool ShouldAnimate(UnitData u)
+    {
+        return PairValid;
+    }
+
     protected override AnimationClip ClipFor(UnitData u)
     {
-        if (u.type != UnitType.Leader) return u.BreedClip;      // pasangan: clip miliknya sendiri
+        if (!PairValid) return null;                          // tanpa pasangan lengkap: tidak ada animasi
 
-        var partner = units.Find(x => x != u);                  // Leader: clip dari data pasangannya
-        return (partner != null && partner.LeaderBreedClip != null) ? partner.LeaderBreedClip : u.BreedClip;
+        if (u.type != UnitType.Leader) return u.BreedClip;    // pasangan: clip miliknya sendiri
+        var partner = units.Find(x => x != u);
+        return partner != null ? partner.LeaderBreedClip : null;
     }
 
     bool IsFlipped(UnitData leader)

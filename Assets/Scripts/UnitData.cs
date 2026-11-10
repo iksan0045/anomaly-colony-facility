@@ -85,6 +85,15 @@ public class UnitData : ScriptableObject
         }
     }
 
+    public Sprite Portrait
+    {
+        get
+        {
+            if (special != null && special.portrait != null) return special.portrait;
+            return archetype != null ? archetype.portrait : null;
+        }
+    }
+
     public static UnitData CreateSpecial(SpecialUnit s)
     {
         var gm = GameManager.Instance;
@@ -107,7 +116,7 @@ public class UnitData : ScriptableObject
     {
         get
         {
-            string n = string.IsNullOrEmpty(displayName) ? type + " #" + id : displayName + " #" + id;
+            string n = displayName + $"({type})" + " #" + id ;
             return special != null ? "* " + n : n;
         }
     }

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3d98133dad47444e9c5ac6d2e4b8255, type: 3}
+  m_Name: Wold Queen
+  m_EditorClassIdentifier: 
+  displayName: Wolf Queen
+  type: 2
+  unique: 1
+  model: {fileID: 0}
+  animatorOverride: {fileID: 0}
+  breedClip: {fileID: 7400000, guid: 776202c4b33654d438bac56d7ba03fb2, type: 2}
+  leaderBreedClip: {fileID: 7400000, guid: 6cc1f22f242427d428bfde90780007cc, type: 2}
+  leaderFacesMe: 1
+  scale: 1
+  breedTicks: 25
+  power: 8
+  fertility: 8
+  moveSpeed: 1.2

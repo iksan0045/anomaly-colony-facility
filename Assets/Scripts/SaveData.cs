@@ -52,4 +52,5 @@ public class SaveData
     public List<UnitSave> units = new List<UnitSave>();
     public List<CellSave> cells = new List<CellSave>();
     public string[] log;
+    public string raidTarget;
 }

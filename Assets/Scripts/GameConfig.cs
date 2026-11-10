@@ -12,6 +12,8 @@ public static class GameConfig
     public const int StartMaterials = 20;
     public const int BaseMaxResource = 50;
     public const int StorageBonus = 25;
+
+    public const int RaidCooldownTicks = 20;
     
 
     // Unit
@@ -27,8 +29,6 @@ public static class GameConfig
     // Breeding
     public const int BreedTicks = 10;
 
-    // Raid
-    public const int RaidCooldownTicks = 15;
     public const int RaidBasePower = 3;
     public const int RaidPowerPerRaid = 2;
     public const int FighterPowerLoss = 2;
