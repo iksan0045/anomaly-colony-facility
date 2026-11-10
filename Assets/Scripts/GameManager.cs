@@ -118,10 +118,22 @@ public class GameManager : MonoBehaviour
         if (units.Count >= MaxUnits) return false;
         int power = Mathf.RoundToInt((a.power + b.power) / 2f) + Random.Range(-2, 3); // -2..+2
         int fert = Mathf.RoundToInt((a.fertility + b.fertility) / 2f) + Random.Range(-1, 2);
-        var u = AddUnit(UnitData.Create(RandomType(), power, fert));
+        var u = AddUnit(RollNewUnit(power, fert));
         Log("Unit bred: " + u.Label + " (P" + u.power + ")");
         NotifyChanged();
         return true;
+    }
+
+    public UnitData RollNewUnit(int power = -1, int fertility = -1)
+    {
+        var sp = database != null ? database.RollSpecial(units) : null;
+        if (sp != null)
+        {
+            var s = UnitData.CreateSpecial(sp);
+            Log("Unit spesial: " + s.Label + "!");
+            return s;
+        }
+        return UnitData.Create(RandomType(), power, fertility);
     }
 
     public static UnitType RandomType() { return (UnitType)Random.Range(0, 3); }

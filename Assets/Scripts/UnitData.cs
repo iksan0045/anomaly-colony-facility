@@ -19,6 +19,7 @@ public class UnitData : ScriptableObject
     public float moveSpeed = 1.2f;
     public float scale = 1f;
     public string displayName;
+    public SpecialUnit special;
 
     public static void ResetIds() { nextId = 1; }
 
@@ -45,9 +46,40 @@ public class UnitData : ScriptableObject
         return u;
     }
 
+    public AnimationClip BreedClip
+    {
+        get
+        {
+            if (special != null && special.breedClip != null) return special.breedClip;
+            return archetype != null ? archetype.breedClip : null;
+        }
+    }
+
+    public static UnitData CreateSpecial(SpecialUnit s)
+    {
+        var gm = GameManager.Instance;
+        var u = CreateInstance<UnitData>();
+        u.id = nextId++;
+        u.type = s.type;
+        u.special = s;
+        u.archetype = (gm != null && gm.database != null) ? gm.database.Get(s.type) : null; // fallback clip/controller
+        u.power = s.power;
+        u.fertility = s.fertility;
+        u.moveSpeed = s.moveSpeed;
+        u.scale = s.scale;
+        u.displayName = s.displayName;
+        u.mood = GameConfig.MoodStart;
+        u.name = u.Label;
+        return u;
+    }
+
     public string Label
     {
-        get { return string.IsNullOrEmpty(displayName) ? type + " #" + id : displayName + " #" + id; }
+        get
+        {
+            string n = string.IsNullOrEmpty(displayName) ? type + " #" + id : displayName + " #" + id;
+            return special != null ? "* " + n : n;
+        }
     }
 
     

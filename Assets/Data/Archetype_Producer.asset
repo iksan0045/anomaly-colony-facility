@@ -13,9 +13,11 @@ MonoBehaviour:
   m_Name: Archetype_Producer
   m_EditorClassIdentifier: 
   type: 0
-  modelVariants: []
-  animatorOverride: {fileID: 0}
-  scaleRange: {x: 0.9, y: 1.1}
+  modelVariants:
+  - {fileID: -1728013695380148634, guid: 046a077919a6e2047ae2044a2fb631f6, type: 3}
+  animatorOverride: {fileID: 9100000, guid: 121bfc690b5a7984886dd8e525a9a994, type: 2}
+  scaleRange: {x: 0.76, y: 0.78}
+  breedClip: {fileID: 0}
   powerRange: {x: 1, y: 5}
   fertilityRange: {x: 1, y: 6}
   moveSpeedRange: {x: 0.8, y: 1.6}

@@ -7,6 +7,7 @@ public class Cell_Detention : CellBase
     public override int MoodPerTick { get { return GameConfig.MoodDetentionPerTick; } }
 
     public override void OnTick(GameManager gm) { }
+    protected override bool IsActive { get { return units.Count > 0; } }
 
     protected override void DescribeDetails(StringBuilder sb)
     {

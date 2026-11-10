@@ -39,8 +39,16 @@ public class Cell_Breeding : CellBase
         breedProgress = 0;
     }
 
+    bool PairValid { get { return units.Count == 2 && units.Exists(u => u.type == UnitType.Leader); } }
 
-    protected override void OnUnitsChanged() { breedProgress = 0; }
+    // ganti OnUnitsChanged yang sudah ada:
+    protected override void OnUnitsChanged()
+    {
+        breedProgress = 0;
+        //SetUnitsBreeding(PairValid);
+    }
+
+    protected override AnimationClip ClipFor(UnitData u) { return u.BreedClip; }
 
     
 

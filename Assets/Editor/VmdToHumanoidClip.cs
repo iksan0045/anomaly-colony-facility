@@ -37,6 +37,7 @@ namespace VmdTools
         float armAngle = 37f;          // hanya dipakai bila TIDAK ada PMX
         bool forceTPose = true;        // reset model ke pose referensi avatar (muscle = 0)
         bool loop = false;
+        int legMode = 0;   // 0 = Auto (seperti versi 1), 1 = FK saja, 2 = IK selalu
         bool useRefine = false;   // putar-ulang muscle kaki lewat solver humanoid (eksperimental)
 
         [MenuItem("Tools/VMD to Humanoid Clip")]
@@ -72,6 +73,8 @@ namespace VmdTools
             armAngle = EditorGUILayout.Slider("Sudut lengan (tanpa PMX)", armAngle, 0f, 60f);
             forceTPose = EditorGUILayout.Toggle("Reset ke pose referensi avatar", forceTPose);
             loop = EditorGUILayout.Toggle("Loop Time", loop);
+            legMode = EditorGUILayout.Popup("Mode kaki", legMode,
+                new[] { "Auto (seperti versi 1)", "FK saja", "IK selalu" });
             useRefine = EditorGUILayout.Toggle("Refine kaki (eksperimental)", useRefine);
 
             EditorGUILayout.HelpBox(
@@ -126,7 +129,7 @@ namespace VmdTools
                     {
                         path = p, pmxPath = pmxPath, model = model,
                         positionScale = positionScale, autoScale = autoScale,
-                        armAngle = armAngle, forceTPose = forceTPose, useRefine = useRefine
+                        armAngle = armAngle, forceTPose = forceTPose, legMode = legMode
                     };
                     AnimationClip clip = job.Run();
 
@@ -466,8 +469,8 @@ namespace VmdTools
                 A(Hb(en + "UpperArm"), jp + "腕", sign, Hb(en + "LowerArm"), jp + "ひじ");
                 A(Hb(en + "LowerArm"), jp + "ひじ", sign, Hb(en + "Hand"), jp + "手首");
                 A(Hb(en + "Hand"), jp + "手首", sign, Hb(en + "MiddleProximal"), jp + "中指1");
-                A(Hb(en + "UpperLeg"), jp + "足", 0, Hb(en + "LowerLeg"), jp + "ひざ");
-                A(Hb(en + "LowerLeg"), jp + "ひざ", 0, Hb(en + "Foot"), jp + "足首");
+                A(Hb(en + "UpperLeg"), jp + "足", 0, NONE, null);
+                A(Hb(en + "LowerLeg"), jp + "ひざ", 0, NONE, null);
                 A(Hb(en + "Foot"), jp + "足首", 0, NONE, null);
                 for (int f = 0; f < 5; f++)
                     for (int j = 0; j < 3; j++)
@@ -569,16 +572,34 @@ namespace VmdTools
                 return Vector3.zero;
             }
 
+            public int legMode;
+
             bool IkOn(int side, int f)
             {
-                if (vmd.ik.Count > 0)
-                {
-                    var st = vmd.ik[0].on;
-                    foreach (var e in vmd.ik) { if (e.frame <= f) st = e.on; else break; }
-                    bool v;
-                    if (st.TryGetValue(SideJp[side] + "足IK", out v)) return v;
-                }
-                return ikHeur[side]; // tidak ada flag: tebak dari isi track IK
+                if (legMode == 1) return false;
+                if (legMode == 2) return true;
+                return ikHeur[side];   // Auto = perilaku versi 1
+            }
+
+            static void TwoBoneIK(Transform a, Transform b, Transform c, Vector3 target, Vector3 pole)
+            {
+                Vector3 ap = a.position, bp = b.position, cp = c.position;
+                float l1 = (bp - ap).magnitude, l2 = (cp - bp).magnitude;
+                Vector3 d = target - ap;
+                float dist = Mathf.Clamp(d.magnitude, Mathf.Abs(l1 - l2) + 1e-4f, l1 + l2 - 1e-4f);
+                Vector3 u = d.normalized;
+
+                float cosA = Mathf.Clamp((l1 * l1 + dist * dist - l2 * l2) / (2f * l1 * dist), -1f, 1f);
+                float sinA = Mathf.Sqrt(1f - cosA * cosA);
+                Vector3 perp = pole - Vector3.Dot(pole, u) * u;
+                if (perp.sqrMagnitude < 1e-6f) perp = Vector3.Cross(u, Vector3.right);
+                perp.Normalize();
+
+                Vector3 kneePos = ap + (u * cosA + perp * sinA) * l1;
+                a.rotation = Quaternion.FromToRotation(bp - ap, kneePos - ap) * a.rotation;
+
+                Vector3 reach = ap + u * dist;
+                b.rotation = Quaternion.FromToRotation(c.position - b.position, reach - b.position) * b.rotation;
             }
 
             static int Depth(Transform t) { int d = 0; while (t.parent != null) { d++; t = t.parent; } return d; }
@@ -742,10 +763,14 @@ namespace VmdTools
                 int lastFrame = vmd.lastFrame;
                 if (lastFrame <= 0) throw new Exception("VMD tidak punya keyframe bone yang bisa dipakai.");
 
+                // Mode Auto (perilaku versi 1): IK dipakai bila jumlah key IK >= jumlah key FK paha+lutut
                 for (int s = 0; s < 2; s++)
                 {
-                    Track tr;
-                    ikHeur[s] = vmd.tracks.TryGetValue(SideJp[s] + "足IK", out tr) && tr.HasMotion();
+                    Track ti, t1, t2;
+                    int ik = vmd.tracks.TryGetValue(SideJp[s] + "足IK", out ti) ? ti.keys.Count : 0;
+                    int fk = (vmd.tracks.TryGetValue(SideJp[s] + "足", out t1) ? t1.keys.Count : 0)
+                        + (vmd.tracks.TryGetValue(SideJp[s] + "ひざ", out t2) ? t2.keys.Count : 0);
+                    ikHeur[s] = ik > 0 && ik >= fk;
                 }
 
                 GameObject go = UnityEngine.Object.Instantiate(model);
@@ -776,22 +801,13 @@ namespace VmdTools
                         bones.Add(new Bone { def = d, t = t, restWorld = t.rotation, depth = Depth(t), offset = Quaternion.identity });
                     }
                     bones.Sort((a, b) => a.depth.CompareTo(b.depth));
-                    var byT = new Dictionary<Transform, Bone>();
-                    foreach (var bb in bones) byT[bb.t] = bb;
 
                     // ---- offset pose diam lengan & jari: arah tulang model -> arah tulang MMD ----
                     var offByT = new Dictionary<Transform, Quaternion>();
                     foreach (var b in bones)
                     {
-                        if (b.def.arm == 0 && b.def.mmdNext == null) continue;
+                        if (b.def.arm == 0 && b.def.mmdNext == null) continue;   // kaki & badan: tanpa offset
                         var d = b.def;
-                        // kaki: pose diam MMD dan T-pose sama-sama lurus ke bawah -> tanpa offset (seperti versi pelvis)
-                        if (d.bone == HumanBodyBones.LeftUpperLeg  || d.bone == HumanBodyBones.RightUpperLeg ||
-                            d.bone == HumanBodyBones.LeftLowerLeg  || d.bone == HumanBodyBones.RightLowerLeg)
-                        {
-                            b.offset = Quaternion.identity;
-                            continue;
-                        }
                         string jp = d.arm > 0 ? "左" : "右", en = d.arm > 0 ? "Left" : "Right";
 
                         Transform next = d.next != HumanBodyBones.LastBone
@@ -805,7 +821,6 @@ namespace VmdTools
                             mNext = jp + "人指1";
                         }
 
-                        // arah segmen di MMD (dari PMX), atau arah A-pose standar bila tanpa PMX
                         Vector3 mDir = Vector3.zero;
                         Vector3 p0, p1;
                         if (pmx != null && mNext != null && pmx.TryGetValue(d.mmd, out p0) && pmx.TryGetValue(mNext, out p1))
@@ -832,23 +847,10 @@ namespace VmdTools
                     Transform hips = anim.GetBoneTransform(HumanBodyBones.Hips);
                     Vector3 hipsRestPos = hips.position;
 
-                    // ---- siapkan IK kaki ----
+                    // ---- siapkan IK kaki (seperti versi 1) ----
                     Transform[] thigh = new Transform[2], knee = new Transform[2], foot = new Transform[2];
                     Vector3[] ankleRest = new Vector3[2];
                     Quaternion[] footRest = new Quaternion[2];
-                    Vector3[] hingeLocal = new Vector3[2];
-                    // salinan pose diam (muscle = 0) untuk memulihkan model setelah kalibrasi
-                    var restPose = new HumanPose
-                    {
-                        bodyPosition = pose.bodyPosition,
-                        bodyRotation = pose.bodyRotation,
-                        muscles = (float[])pose.muscles.Clone()
-                    };
-                    Transform lThigh = anim.GetBoneTransform(HumanBodyBones.LeftUpperLeg);
-                    Transform rThigh = anim.GetBoneTransform(HumanBodyBones.RightUpperLeg);
-                    Vector3 bodyFwd = (lThigh != null && rThigh != null)
-                        ? Vector3.Cross(Vector3.up, lThigh.position - rThigh.position).normalized
-                        : anim.transform.forward;
                     bool[] legOk = new bool[2];
                     for (int s = 0; s < 2; s++)
                     {
@@ -859,20 +861,6 @@ namespace VmdTools
                         if (!legOk[s]) continue;
                         ankleRest[s] = foot[s].position;
                         footRest[s] = foot[s].rotation;
-
-                        
-                        // tandanya dipilih agar menekuk lutut = pergelangan bergerak KE BELAKANG
-                        // (sama seperti pole = pelvis*forward di versi pelvis)
-                        Vector3 fwdRef = anim.transform.forward;
-                        Vector3 legDir = (knee[s].position - thigh[s].position).normalized;
-                        Vector3 hingeW = Vector3.Cross(fwdRef, legDir).normalized;
-
-                        Vector3 shinRest = foot[s].position - knee[s].position;
-                        Vector3 moved = Quaternion.AngleAxis(20f, hingeW) * shinRest;
-                        if (Vector3.Dot(moved - shinRest, fwdRef) > 0f) hingeW = -hingeW;
-
-                        Debug.Log("[VMD] engsel lutut " + SideEn[s] + " = " + hingeW.ToString("F2"));
-                        hingeLocal[s] = Quaternion.Inverse(thigh[s].rotation) * hingeW;
                     }
 
                     // ---- skala posisi ----
@@ -886,13 +874,10 @@ namespace VmdTools
                         if (mmdLeg > 0.01f && tgtLeg > 0.01f) scale = tgtLeg / mmdLeg;
                     }
                     Debug.Log("[VMD] skala posisi = " + scale.ToString("F4") +
-                              " | IK kiri f0 = " + (legOk[0] && IkOn(0, 0)) + ", IK kanan f0 = " + (legOk[1] && IkOn(1, 0)) +
-                              " | PMX = " + (pmx != null));
-                    Debug.Log("[VMD] arah hadap badan = " + bodyFwd.ToString("F2") +
-                            " | x paha kiri = " + (lThigh != null ? lThigh.position.x.ToString("F2") : "-") +
-                            ", x paha kanan = " + (rThigh != null ? rThigh.position.x.ToString("F2") : "-"));
-                    if (Vector3.Dot(bodyFwd, Vector3.forward) < 0.5f)
-                        Debug.LogWarning("[VMD] Model tidak menghadap +Z. Konversi MMD mengasumsikan +Z, jadi kaki kiri/kanan bisa tertukar.");
+                            " | kaki kiri = " + (legOk[0] && IkOn(0, 0) ? "IK" : "FK") +
+                            ", kaki kanan = " + (legOk[1] && IkOn(1, 0) ? "IK" : "FK") +
+                            " | PMX = " + (pmx != null));
+
                     // ---- penampung kurva ----
                     int muscleCount = HumanTrait.MuscleCount;
                     int channels = 7 + muscleCount;
@@ -901,25 +886,6 @@ namespace VmdTools
 
                     Quaternion prevQ = Quaternion.identity;
                     Vector3 forward = anim.transform.forward;
-
-                    int[][] legMi = new int[2][];
-                    bool[] refine = new bool[2];
-                    for (int s = 0; s < 2; s++)
-                    {
-                        legMi[s] = new int[LegMuscleSuffix.Length];
-                        bool okm = true;
-                        for (int k = 0; k < LegMuscleSuffix.Length; k++)
-                        {
-                            legMi[s][k] = Array.IndexOf(HumanTrait.MuscleName, SideEn[s] + LegMuscleSuffix[k]);
-                            if (legMi[s][k] < 0) okm = false;
-                        }
-                        refine[s] = useRefine && okm && legOk[s];
-                    }
-                    Vector3[] tgtPos = new Vector3[2];
-                    Quaternion[] tgtRot = new Quaternion[2];
-                    bool[] tgtOn = new bool[2];
-                    float legLen = legOk[0] ? (thigh[0].position - foot[0].position).magnitude
-                                : legOk[1] ? (thigh[1].position - foot[1].position).magnitude : 0.8f;
 
                     for (int f = 0; f <= lastFrame; f++)
                     {
@@ -938,40 +904,19 @@ namespace VmdTools
                         foreach (var b in bones)
                             b.t.rotation = WorldDelta(b.def.mmd) * b.offset * b.restWorld;
 
-
-                        tgtOn[0] = tgtOn[1] = false;
-                        // kaki IK (bila flag IK menyala pada frame ini)
-                        Quaternion pelvis = WorldDelta("下半身");
+                        // kaki IK (hanya bila mode memilih IK)
                         for (int s = 0; s < 2; s++)
                         {
                             if (!legOk[s] || !IkOn(s, f)) continue;
                             string ikName = SideJp[s] + "足IK";
-
-                            // buang nilai FK paha/lutut: titik awal = ikut pinggul saja (seperti MMD)
-                            Bone bt = byT[thigh[s]], bk = byT[knee[s]];
-                            thigh[s].rotation = pelvis * bt.offset * bt.restWorld;
-                            knee[s].rotation  = pelvis * bk.offset * (bk.restWorld);
-
                             Vector3 target = ankleRest[s] + (PosOf("全ての親") + PosOf(ikName)) * scale;
-                            float err = LegIK(thigh[s], knee[s], foot[s], hingeLocal[s], target);
-                            if (err > 0.01f) Debug.LogWarning("Frame " + f + " kaki " + SideEn[s] + " tak terjangkau: " + err.ToString("F3") + " m");
+                            Vector3 pole = WorldDelta("下半身") * forward;
+                            TwoBoneIK(thigh[s], knee[s], foot[s], target, pole);
                             foot[s].rotation = WorldDelta(ikName) * footRest[s];
-                            tgtOn[s] = true;
-                            tgtPos[s] = target;
-                            tgtRot[s] = WorldDelta(ikName) * footRest[s];
                         }
 
                         // baca pose humanoid
                         handler.GetHumanPose(ref pose);
-                        for (int s = 0; s < 2; s++)
-                        {
-                            if (!tgtOn[s] || !refine[s]) continue;
-                            float eBefore;
-                            float eAfter = RefineLeg(handler, pose, legMi[s], foot[s], tgtPos[s], tgtRot[s], legLen, out eBefore);
-                            if (f == 0 || eAfter > 0.02f)
-                                Debug.Log("[VMD] frame " + f + " kaki " + SideEn[s] + ": galat pergelangan setelah putar-ulang humanoid = "
-                                        + eBefore.ToString("F3") + " m, setelah refine = " + eAfter.ToString("F3") + " m");
-                        }
                         data[0][f] = pose.bodyPosition.x;
                         data[1][f] = pose.bodyPosition.y;
                         data[2][f] = pose.bodyPosition.z;

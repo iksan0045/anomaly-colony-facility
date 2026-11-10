@@ -12,18 +12,25 @@ public class UnitVisual : MonoBehaviour
 
     Transform fallbackBody;
     GameObject model;
+    ClipPlayer clipPlayer;
     Animator anim;
     bool hasWalkParam;
     bool walking;
     float bobTime;
+    [SerializeField] bool debugWalking; 
 
-    public void Setup(UnitArchetype archetype, int variant, float scale)
+    public void Setup(UnitData d)
     {
-        fallbackBody = transform.Find("Body");
-        transform.localScale = Vector3.one * scale;
+        var a = d.archetype;
+        var s = d.special;
 
-        GameObject prefab = archetype != null ? archetype.GetModel(variant) : null;
-        if (prefab == null) return; // tetap pakai bola grey-box
+        fallbackBody = transform.Find("Body");
+        transform.localScale = Vector3.one * d.scale;
+
+        GameObject prefab = (s != null && s.model != null) ? s.model
+                        : (a != null ? a.GetModel(d.variant) : null);
+        if (prefab == null) return;
+
 
         model = Instantiate(prefab, transform);
         model.name = "Model";
@@ -36,25 +43,53 @@ public class UnitVisual : MonoBehaviour
 
         anim = model.GetComponentInChildren<Animator>();
         if (anim == null) return;
-        if (archetype.animatorOverride != null && anim.runtimeAnimatorController == null)
-            anim.runtimeAnimatorController = archetype.animatorOverride;
+        var ctrl = (s != null && s.animatorOverride != null) ? s.animatorOverride
+             : (a != null ? a.animatorOverride : null);
+        if (ctrl != null && anim.runtimeAnimatorController == null)
+            anim.runtimeAnimatorController = ctrl;
+
+        clipPlayer = anim.gameObject.AddComponent<ClipPlayer>();
+        clipPlayer.Setup(anim);
         hasWalkParam = HasParam(WalkHash, AnimatorControllerParameterType.Bool);
-        anim.SetBool(WalkHash, false);
+        hasWalkParam = HasParam(WalkHash, AnimatorControllerParameterType.Bool);
+        if (!hasWalkParam)
+        Debug.LogWarning(name + ": controller tidak punya parameter bool 'IsWalking'", this);
+        if (hasWalkParam && clipPlayer == null) anim.SetBool(WalkHash, false);
+    }
+
+    void LateUpdate()
+    {
+        if (model == null) return;
+        model.transform.localPosition = Vector3.zero;   // LateUpdate berjalan setelah animasi dievaluasi
+        model.transform.localRotation = Quaternion.identity;
     }
 
     public void SetWalking(bool value)
     {
         if (walking == value) return;
         walking = value;
-        if (hasWalkParam) anim.SetBool(WalkHash, value);
+        debugWalking = value;
+        if (!hasWalkParam) return;
+
+        if (clipPlayer != null && clipPlayer.HasController)
+            clipPlayer.SetBool(WalkHash, value);   // yang benar-benar menggerakkan animasi
+        anim.SetBool(WalkHash, value);             // cermin saja, supaya tab Parameters ikut berubah
     }
 
-    /// Hook animasi khusus nanti: unit.controller.visual.PlayTrigger("Produce");
     public void PlayTrigger(string triggerName)
     {
         if (anim == null || anim.runtimeAnimatorController == null) return;
         int hash = Animator.StringToHash(triggerName);
-        if (HasParam(hash, AnimatorControllerParameterType.Trigger)) anim.SetTrigger(hash);
+        if (!HasParam(hash, AnimatorControllerParameterType.Trigger)) return;
+        if (clipPlayer != null && clipPlayer.HasController) clipPlayer.SetTrigger(hash);
+        else anim.SetTrigger(hash);
+    }
+
+    
+
+    public void SetClip(AnimationClip clip)
+    {
+        if (clipPlayer != null) clipPlayer.Play(clip);
     }
 
     void Update()

@@ -23,6 +23,10 @@ public class Cell_Production : CellBase
         }
     }
 
+    protected override bool ShouldAnimate(UnitData u)
+    {
+        return u.mood > 0; //!GameManager.Instance.Starving && 
+    }
     protected override void DescribeDetails(StringBuilder sb)
     {
         int e = 0, m = 0;

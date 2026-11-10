@@ -44,7 +44,7 @@ public class RaidManager : MonoBehaviour
             else
             {
                 int power = Mathf.Clamp(Random.Range(2, 7) + RaidCount / 2, 1, 10);
-                var u = gm.AddUnit(UnitData.Create(GameManager.RandomType(), power));
+                var u = gm.AddUnit(gm.RollNewUnit(power));
                 gm.Log("Raid won (" + total + " vs " + enemy + "). Unit captured: " + u.Label + " (P" + u.power + ")");
             }
         }

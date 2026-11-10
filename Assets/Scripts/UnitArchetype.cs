@@ -14,6 +14,10 @@ public class UnitArchetype : ScriptableObject
     [Tooltip("Opsional. Dipakai jika Animator di model belum punya controller.")]
     public RuntimeAnimatorController animatorOverride;
     public Vector2 scaleRange = new Vector2(0.9f, 1.1f);
+    [Header("Animasi khusus")]
+    [Tooltip("Dimainkan unit ini saat berada di Breeding cell (loop). Rig harus sama dengan model.")]
+    public AnimationClip breedClip;
+    public AnimationClip leaderClip;
 
     [Header("Stat (inklusif)")]
     public Vector2Int powerRange = new Vector2Int(1, 10);

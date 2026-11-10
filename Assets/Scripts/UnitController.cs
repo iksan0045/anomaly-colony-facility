@@ -18,7 +18,7 @@ public class UnitController : MonoBehaviour
 
         visual = GetComponent<UnitVisual>();
         if (visual == null) visual = gameObject.AddComponent<UnitVisual>();
-        visual.Setup(d.archetype, d.variant, d.scale);
+        visual.Setup(d);
 
         transform.position = RandomPoint();
         target = transform.position;
@@ -38,6 +38,7 @@ public class UnitController : MonoBehaviour
         var p = transform.position; p.y = 0f; transform.position = p;
         target = p;
         idleTimer = 0f;
+        visual.SetClip(null);
     }
 
     void Update()
