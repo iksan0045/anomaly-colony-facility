@@ -61,11 +61,11 @@ public class SaveManager : MonoBehaviour
             LoadPending = false;
             string when;
             if (TryLoad(out when))
-                gm.Log("Game dimuat (" + when + ")");
+                gm.Log("Game loaded(" + when + ")");
             else
             {
                 gm.SpawnStartingUnits();
-                gm.Log("Save gagal dimuat, mulai baru.");
+                gm.Log("Failed to load save, starting a new game.");
             }
         }
         ready = true;
@@ -87,7 +87,7 @@ public class SaveManager : MonoBehaviour
 
     public void LoadGame()
     {
-        if (!HasSave) { gm.Log("Belum ada save."); return; }
+        if (!HasSave) { gm.Log("No save found."); return; }
         Reload(true);
     }
 
@@ -172,13 +172,13 @@ public class SaveManager : MonoBehaviour
             }
 
             WriteAtomic(JsonUtility.ToJson(d, true));
-            if (announce) gm.Log("Game disimpan.");
+            if (announce) gm.Log("Game saved.");
             return true;
         }
         catch (Exception e)
         {
-            Debug.LogError("[Save] Gagal menyimpan: " + e);
-            if (announce) gm.Log("Gagal menyimpan!");
+            Debug.LogError("[Save] Save failed!" + e);
+            if (announce) gm.Log("Save failed!");
             return false;
         }
     }

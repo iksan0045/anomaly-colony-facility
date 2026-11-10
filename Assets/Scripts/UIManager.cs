@@ -114,8 +114,8 @@ public class UIManager : MonoBehaviour
         var sel = grid.Selected;
         if (sel == null)
             selectedInfo.text = grid.Placing.HasValue
-                ? "Mode taruh: klik grid.\nKlik kanan = rotasi.\nEsc / klik tombol lagi = batal."
-                : "Klik sebuah cell untuk melihat detail.";
+                ? "Placing: click the grid.\nRight-click = rotate.\nEsc / click the button again = cancel."
+                : "Click a cell to see its details.";
         else
             selectedInfo.text = sel.Describe();
 
@@ -169,18 +169,18 @@ public class UIManager : MonoBehaviour
         Text unused;
         if (sel != null && sel.units.Count > 0)
         {
-            Label(rightPanel, "H1", 15, TextAnchor.MiddleLeft, "<b>Di dalam cell</b>");
+            Label(rightPanel, "H1", 15, TextAnchor.MiddleLeft, "<b>Inside cell</b>");
             foreach (var u in new List<UnitData>(sel.units))
             {
                 UnitData unit = u;
-                MakeButton(rightPanel, "Keluarkan: " + u.Label, 26, () => sel.RemoveUnit(unit), out unused);
+                MakeButton(rightPanel, "Release: " + u.Label, 26, () => sel.RemoveUnit(unit), out unused);
             }
         }
 
         var free = new List<UnitData>();
         foreach (var u in gm.units) if (u.cell == null) free.Add(u);
 
-        Label(rightPanel, "H2", 15, TextAnchor.MiddleLeft, "<b>Unit bebas (" + free.Count + ")</b>");
+        Label(rightPanel, "H2", 15, TextAnchor.MiddleLeft, "<b>Free units (" + free.Count + ")</b>");
         foreach (var u in free)
         {
             UnitData unit = u;
