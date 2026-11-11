@@ -155,6 +155,7 @@ public class SaveManager : MonoBehaviour
                     scale = u.scale,
                     displayName = u.displayName,
                     specialName = u.special != null ? u.special.name : "",
+                    archetypeName = u.archetype != null ? u.archetype.name : "",
                 });
             }
 
@@ -245,7 +246,7 @@ public class SaveManager : MonoBehaviour
                 u.scale = us.scale;
                 u.displayName = us.displayName;
                 u.special = FindSpecial(db, us.specialName);
-                u.archetype = db != null ? db.Get(u.type) : null;
+                u.archetype = FindArchetype(db, us.archetypeName) ?? (db != null ? db.Get(u.type) : null);
                 u.name = u.Label;
 
                 gm.AddUnit(u);
@@ -281,6 +282,12 @@ public class SaveManager : MonoBehaviour
         }
     }
 
+    static UnitArchetype FindArchetype(UnitDatabase db, string n)
+    {
+        if (db == null || db.archetypes == null || string.IsNullOrEmpty(n)) return null;
+        foreach (var a in db.archetypes) if (a != null && a.name == n) return a;
+        return null;
+    }
     static SpecialUnit FindSpecial(UnitDatabase db, string assetName)
     {
         if (db == null || db.specials == null || string.IsNullOrEmpty(assetName)) return null;

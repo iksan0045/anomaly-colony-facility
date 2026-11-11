@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Archetype_Leader
   m_EditorClassIdentifier: 
   type: 3
+  portrait: {fileID: -187817877, guid: 662ac1ed07b30c144ad8aa21cd65ffa3, type: 3}
   modelVariants:
   - {fileID: -1728013695380148634, guid: 5b70f699ceac4374c8c2c54f3290f2a1, type: 3}
   animatorOverride: {fileID: 9100000, guid: 99d4d263a98456844b96092983fdcc63, type: 2}

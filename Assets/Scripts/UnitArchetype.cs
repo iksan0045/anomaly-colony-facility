@@ -41,6 +41,22 @@ public class UnitArchetype : ScriptableObject
     public float RollMoveSpeed() { return Random.Range(moveSpeedRange.x, moveSpeedRange.y); }
     public float RollScale() { return Random.Range(scaleRange.x, scaleRange.y); }
 
+    [System.Serializable]
+    public class OffspringEntry
+    {
+        public UnitArchetype archetype;
+        [Min(0f)] public float weight = 1f;
+        [Tooltip("Entri langka: bobotnya dikali bonus jika breeding memakai Leader.")]
+        public bool rare;
+    }
+
+    // di dalam class UnitArchetype:
+    [Header("Jenis")]
+    public string displayName;      // mis. "Elf Healer" (untuk UI/log, opsional)
+
+    [Header("Turunan (jika unit jenis ini jadi Breeder induk)")]
+    [Tooltip("Kosong = anak acak seperti sebelumnya.")]
+    public OffspringEntry[] offspring;
     public int RollVariant()
     {
         return (modelVariants == null || modelVariants.Length == 0) ? 0 : Random.Range(0, modelVariants.Length);
@@ -56,5 +72,32 @@ public class UnitArchetype : ScriptableObject
     {
         if (namePool == null || namePool.Length == 0) return type.ToString();
         return namePool[Random.Range(0, namePool.Length)];
+    }
+
+    public UnitArchetype RollOffspring(bool withLeader)
+    {
+        if (offspring == null || offspring.Length == 0) return null;
+
+        float total = 0f;
+        foreach (var o in offspring) total += OffspringWeight(o, withLeader);
+        if (total <= 0f) return null;
+
+        float r = Random.value * total;
+        UnitArchetype last = null;
+        foreach (var o in offspring)
+        {
+            float w = OffspringWeight(o, withLeader);
+            if (w <= 0f) continue;
+            last = o.archetype;
+            r -= w;
+            if (r <= 0f) return o.archetype;
+        }
+        return last;   // jaga-jaga pembulatan float
+    }
+
+    static float OffspringWeight(OffspringEntry o, bool withLeader)
+    {
+        if (o == null || o.archetype == null || o.archetype.type == UnitType.Leader) return 0f;
+        return o.weight * (withLeader && o.rare ? GameConfig.LeaderRareMultiplier : 1f);
     }
 }

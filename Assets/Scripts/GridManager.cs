@@ -12,6 +12,7 @@ public class GridManager : MonoBehaviour
     [Header("Diisi otomatis oleh Tools > Anomaly Facility > Setup Project")]
     public CellBase[] cellPrefabs; // index = (int)CellType
 
+    public GameObject[] tilePrefabs;  
     public GameObject lantaiGrid;
     public readonly List<CellBase> cells = new List<CellBase>();
     public CellType? Placing { get; private set; }
@@ -43,9 +44,29 @@ public class GridManager : MonoBehaviour
     void BuildGround()
     {
         var root = new GameObject("Ground").transform;
+        var rng = new System.Random(777);
+        bool useTiles = tilePrefabs != null && tilePrefabs.Length > 0;
+
+        if (!useTiles)
+            Debug.LogWarning("tilePrefabs kosong di GridManager, memakai lantai grey-box.");
+
         for (int x = 0; x < GameConfig.GridSize; x++)
         for (int z = 0; z < GameConfig.GridSize; z++)
         {
+            GameObject prefab = useTiles ? tilePrefabs[rng.Next(tilePrefabs.Length)] : null;
+
+            if (prefab != null)
+            {
+                var tile = Instantiate(prefab, root);
+                tile.name = "Tile_" + x + "_" + z;
+                tile.transform.SetPositionAndRotation(
+                    new Vector3(x + 0.5f, 0f, z + 0.5f),
+                    Quaternion.Euler(0f, 90f * rng.Next(4), 0f));
+                foreach (var c in tile.GetComponentsInChildren<Collider>()) Destroy(c);
+                continue;
+            }
+
+            // Fallback grey-box (hanya jika tilePrefabs kosong)
             var t = GameObject.CreatePrimitive(PrimitiveType.Cube);
             t.name = "Tile_" + x + "_" + z;
             Destroy(t.GetComponent<Collider>());

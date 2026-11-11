@@ -25,6 +25,32 @@ public class UnitData : ScriptableObject
     public static void SetNextId(int n) { nextId = n; }
     public static void ResetIds() { nextId = 1; }
 
+    public bool IsFemale
+    {
+        get { return special != null ? special.isFemale
+                                    : (type == UnitType.Producer || type == UnitType.Breeder); }
+    }
+
+    /// True jika unit punya peran ini (tipe utama, atau tipe tambahan untuk unit spesial multiclass).
+    public bool Is(UnitType t)
+    {
+        if (type == t) return true;
+        return t != UnitType.Leader && special != null && special.extraTypes != null
+            && System.Array.IndexOf(special.extraTypes, t) >= 0;
+    }
+
+    /// Jadikan unit ini jenis tertentu: tipe, model, skala, kecepatan, nama. Panggil SEBELUM AddUnit().
+    public void ApplyArchetype(UnitArchetype a)
+    {
+        if (a == null) return;
+        archetype = a;
+        type = a.type;
+        variant = a.RollVariant();
+        scale = a.RollScale();
+        moveSpeed = a.RollMoveSpeed();
+        displayName = a.RollName();
+        name = Label;
+    }
     public static UnitData Create(UnitType type, int power = -1, int fertility = -1)
     {
         var gm = GameManager.Instance;

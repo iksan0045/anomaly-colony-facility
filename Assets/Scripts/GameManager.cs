@@ -95,6 +95,9 @@ public class GameManager : MonoBehaviour
             // Mood (delta ditentukan cell tempat unit berada)
             int before = u.mood;
             int delta = u.cell != null ? u.cell.MoodPerTick : -GameConfig.MoodDecayPerTick;
+            int aura = 0;
+            foreach (var c in GridManager.Instance.cells) aura += c.AuraMoodFor(u);
+            delta += Mathf.Min(aura, GameConfig.AuraMoodCap);
             if (!fed) delta -= GameConfig.StarvationMoodPenalty;
             u.mood = Mathf.Clamp(u.mood + delta, 0, 100);
 
@@ -137,9 +140,31 @@ public class GameManager : MonoBehaviour
     public bool TrySpawnBred(UnitData a, UnitData b)
     {
         if (units.Count >= MaxUnits) return false;
-        int power = Mathf.RoundToInt((a.power + b.power) / 2f) + Random.Range(-2, 3); // -2..+2
-        int fert = Mathf.RoundToInt((a.fertility + b.fertility) / 2f) + Random.Range(-1, 2);
-        var u = AddUnit(UnitData.Create(RandomType(), power, fert));
+
+        bool withLeader = a.type == UnitType.Leader || b.type == UnitType.Leader;
+        int spread = withLeader ? GameConfig.BreedSpreadLeader : GameConfig.BreedSpreadNormal;
+        int bonus  = withLeader ? GameConfig.BreedLeaderPowerBonus : 0;
+        int power = Mathf.RoundToInt((a.power + b.power) / 2f) + bonus + Random.Range(-spread, spread + 1);
+        int fert  = Mathf.RoundToInt((a.fertility + b.fertility) / 2f) + Random.Range(-1, 2);
+
+        // induk Breeder menentukan jenis anak
+        UnitData parent = (a.Is(UnitType.Breeder) && b.Is(UnitType.Breeder)) ? (Random.value < 0.5f ? a : b)
+                        : a.Is(UnitType.Breeder) ? a : b;
+        UnitArchetype parentArch = parent.archetype != null ? parent.archetype
+                                : (database != null ? database.Get(parent.type) : null);
+        UnitArchetype childArch = parentArch != null ? parentArch.RollOffspring(withLeader) : null;
+
+        UnitType childType = childArch != null ? childArch.type : RandomType();   // fallback lama
+        if (childArch != null)
+        {
+            power = Mathf.Clamp(power, childArch.powerRange.x, childArch.powerRange.y);
+            fert  = Mathf.Clamp(fert,  childArch.fertilityRange.x, childArch.fertilityRange.y);
+        }
+
+        var u = UnitData.Create(childType, power, fert);
+        if (childArch != null) u.ApplyArchetype(childArch);   // sebelum AddUnit supaya model yang dipasang sudah benar
+        AddUnit(u);
+
         Log("Unit bred: " + u.Label + " (P" + u.power + ")");
         NotifyChanged();
         return true;

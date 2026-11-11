@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -9,8 +10,8 @@ using UnityEngine.UI;
 /// Mode 2 (result): ringkasan hasil raid + status recovery.
 public class RaidPanel : MonoBehaviour
 {
-    static readonly Color Normal = new Color(0.25f, 0.27f, 0.32f, 1f);
-    static readonly Color Highlight = new Color(0.20f, 0.45f, 0.75f, 1f);
+    static Color Normal { get { return UITheme.Active.buttonColor; } }
+    static Color Highlight { get { return UITheme.Active.buttonHighlight; } }
 
     GameManager gm;
     RaidManager raid;
@@ -26,7 +27,13 @@ public class RaidPanel : MonoBehaviour
     readonly Dictionary<int, Text> rowLabels = new Dictionary<int, Text>();
     readonly Dictionary<int, UnitData> rowUnits = new Dictionary<int, UnitData>();
     RaidProtocol protocol = RaidProtocol.Safe;
-    bool showingResult;
+    enum Mode { Prep, Running, Result }
+    Mode mode;
+
+    GameObject runSection, bottomRow;
+    RectTransform winRect, squadStrip, barFill;
+    Text phaseText, resultTitle, lossText;
+    Image flashImg, resultPortrait;
 
     // ================= Build =================
 
@@ -34,17 +41,19 @@ public class RaidPanel : MonoBehaviour
     {
         gm = GameManager.Instance;
         raid = RaidManager.Instance;
-        font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        font = UITheme.Active.GetFont();
 
         var self = (RectTransform)transform;
         Stretch(self);
 
         // Latar gelap (menghalangi klik ke grid)
-        var dim = Box("Dim", transform, new Color(0f, 0f, 0f, 0.6f));
+        var dim = Box("Dim", transform, UITheme.Active.dimColor);
         Stretch(dim);
         root = dim.gameObject;
 
         var win = Box("Window", dim, new Color(0.10f, 0.11f, 0.14f, 1f));
+        winRect = win;
+        UITheme.Active.StylePanel(win.GetComponent<Image>(), true);
         win.anchorMin = win.anchorMax = new Vector2(0.5f, 0.5f);
         win.sizeDelta = new Vector2(720, 630);
         win.anchoredPosition = Vector2.zero;
@@ -100,11 +109,49 @@ public class RaidPanel : MonoBehaviour
         protocolDesc = Txt(win, "", 13, TextAnchor.UpperLeft, 40);
 
         // Tombol bawah
-        var bottom = Row(win, 40, 8);
+        var bottom = Row(win, 40, 8); 
+        bottomRow = bottom.gameObject;
         Text l3, l4;
         launchBtn = Btn(bottom, "LAUNCH RAID", 40, OnLaunch, out l3);
         Btn(bottom, "Close", 40, () => root.SetActive(false), out l4);
+        // ----- Running -----
+        runSection = new GameObject("Running", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement));
+        runSection.transform.SetParent(win, false);
+        var rv = runSection.GetComponent<VerticalLayoutGroup>();
+        rv.spacing = 10; rv.childControlWidth = rv.childControlHeight = true;
+        rv.childForceExpandWidth = true; rv.childForceExpandHeight = false;
+        runSection.GetComponent<LayoutElement>().preferredHeight = 330;
 
+        phaseText = Txt(runSection.transform, "", 22, TextAnchor.MiddleCenter, 40);
+        squadStrip = Row(runSection.transform, 100, 8);
+        squadStrip.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+        squadStrip.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = false;
+
+        var barBg = Box("BarBg", runSection.transform, new Color(0.18f, 0.19f, 0.22f));
+        barBg.gameObject.AddComponent<LayoutElement>().preferredHeight = 20;
+        barFill = Box("BarFill", barBg, new Color(0.25f, 0.7f, 0.95f));
+        barFill.anchorMin = Vector2.zero; barFill.anchorMax = new Vector2(0f, 1f);
+        barFill.offsetMin = barFill.offsetMax = Vector2.zero;
+
+        var labels = Row(runSection.transform, 24, 0);
+        Txt(labels, "SCAN", 13, TextAnchor.MiddleLeft, 0);
+        Txt(labels, "ENGAGE", 13, TextAnchor.MiddleCenter, 0);
+        Txt(labels, "EXTRACT", 13, TextAnchor.MiddleRight, 0);
+
+        // ----- Result (dipakai bersama briefing/stats yang sudah ada) -----
+        resultTitle = Txt(win, "", 24, TextAnchor.MiddleCenter, 36);
+        var pGo = new GameObject("ResultPortrait", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+        pGo.transform.SetParent(win, false);
+        pGo.GetComponent<LayoutElement>().preferredHeight = 90;
+        resultPortrait = pGo.GetComponent<Image>();
+        resultPortrait.preserveAspect = true;
+        lossText = Txt(win, "", 14, TextAnchor.MiddleCenter, 40);
+
+        // ----- Flash layar (glow tiap pergantian fase) -----
+        flashImg = Box("Flash", win, Color.clear).GetComponent<Image>();
+        flashImg.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+        Stretch(flashImg.rectTransform);
+        flashImg.GetComponent<Image>().raycastTarget = false;
         gm.OnChanged += Refresh;
         root.SetActive(false);
     }
@@ -118,10 +165,9 @@ public class RaidPanel : MonoBehaviour
 
     public void Open()
     {
-        if (raid.CooldownLeft > 0) return;
+        if (raid.InProgress || raid.CooldownLeft > 0) return;
 
-        showingResult = false;
-        protocol = RaidProtocol.Safe;
+        protocol = RaidProtocol.Safe;          // baris 'showingResult = false;' dihapus
 
         var t = raid.CurrentTarget;
         targetImage.sprite = t.image;
@@ -133,18 +179,28 @@ public class RaidPanel : MonoBehaviour
         foreach (var u in gm.units) if (u.type == UnitType.Fighter) selected.Add(u.id);
         RebuildFighters();
 
-        SetMode(false);
+        SetMode(Mode.Prep);                    // sebelumnya SetMode(false)
         root.SetActive(true);
         Refresh();
     }
 
-    void SetMode(bool result)
+    void SetMode(Mode m)
     {
-        fighterSection.SetActive(!result);
-        protocolRow.SetActive(!result);
-        protocolDesc.gameObject.SetActive(!result);
-        launchBtn.gameObject.SetActive(!result);
+        mode = m;
+        bool prep = m == Mode.Prep, run = m == Mode.Running, res = m == Mode.Result;
+
+        fighterSection.SetActive(prep);
+        protocolRow.SetActive(prep);
+        protocolDesc.gameObject.SetActive(prep);
+        launchBtn.gameObject.SetActive(prep);
+        bottomRow.SetActive(!run);          // Close disembunyikan saat raid berjalan
+        runSection.SetActive(run);
+
+        resultTitle.gameObject.SetActive(res);
+        resultPortrait.gameObject.SetActive(res && raid.LastCaptured != null);
+        lossText.gameObject.SetActive(res);
     }
+
 
     void SetProtocol(RaidProtocol p)
     {
@@ -155,11 +211,98 @@ public class RaidPanel : MonoBehaviour
     void OnLaunch()
     {
         var squad = Squad();
-        if (squad.Count == 0) return;
-        raid.Launch(squad, protocol);
-        showingResult = true;
-        SetMode(true);
-        Refresh();
+        if (!raid.Begin(squad, protocol)) return;
+        StartCoroutine(RunRaid(squad));
+    }
+    IEnumerator RunRaid(List<UnitData> squad)
+    {
+        SetMode(Mode.Running);
+        BuildSquadStrip(squad);
+
+        string[] phases = { "SCAN", "ENGAGE", "EXTRACT" };
+        float total = GameConfig.RaidDurationSeconds, t = 0f, flash = 0f;
+        int last = -1;
+        Vector2 home = winRect.anchoredPosition;
+
+        while (t < total)
+        {
+            t += Time.unscaledDeltaTime;
+            float p = Mathf.Clamp01(t / total);
+            int phase = Mathf.Min(2, (int)(p * 3f));
+
+            if (phase != last) { last = phase; phaseText.text = "<b>" + phases[phase] + "</b>"; flash = 1f; }
+
+            barFill.anchorMax = new Vector2(p, 1f);
+            flash = Mathf.MoveTowards(flash, 0f, Time.unscaledDeltaTime * 3f);
+            flashImg.GetComponent<Image>().color = new Color(1f, 1f, 1f, flash * 0.25f);
+
+            // goyang ringan hanya saat ENGAGE; strip unit berdenyut pelan
+            winRect.anchoredPosition = home + (phase == 1 ? Random.insideUnitCircle * 3f : Vector2.zero);
+            squadStrip.localScale = Vector3.one * (1f + 0.03f * Mathf.Sin(t * 8f));
+            yield return null;
+        }
+
+        winRect.anchoredPosition = home;
+        squadStrip.localScale = Vector3.one;
+        flashImg.GetComponent<Image>().color = Color.clear;
+
+        raid.Finish();
+        ShowResult();
+    }
+
+    void BuildSquadStrip(List<UnitData> squad)
+    {
+        foreach (Transform ch in squadStrip) { ch.gameObject.SetActive(false); Destroy(ch.gameObject); }
+
+        int shown = Mathf.Min(squad.Count, 6);
+        for (int i = 0; i < shown; i++)
+        {
+            var tile = Box("Unit", squadStrip, new Color(0.20f, 0.22f, 0.26f));
+            var le = tile.gameObject.AddComponent<LayoutElement>();
+            le.preferredWidth = 90; le.preferredHeight = 90;
+
+            var sprite = squad[i].Portrait;
+            if (sprite != null)
+            {
+                var img = Box("Portrait", tile, Color.white).GetComponent<Image>();
+                img.sprite = sprite; img.preserveAspect = true; img.raycastTarget = false;
+                Stretch(img.rectTransform);
+            }
+            else
+            {
+                var n = Txt(tile, squad[i].Label, 12, TextAnchor.MiddleCenter, 0);
+                Stretch(n.rectTransform);
+            }
+        }
+        if (squad.Count > shown) Txt(squadStrip, "+" + (squad.Count - shown), 20, TextAnchor.MiddleCenter, 0);
+    }
+
+    void ShowResult()
+    {
+        SetMode(Mode.Result);
+
+        Color c;
+        switch (raid.LastOutcome)
+        {
+            case RaidOutcome.Perfect:      c = new Color(1.00f, 0.84f, 0.30f); break;
+            case RaidOutcome.Standard:     c = new Color(0.45f, 0.85f, 0.45f); break;
+            case RaidOutcome.Costly:       c = new Color(1.00f, 0.65f, 0.25f); break;
+            case RaidOutcome.Failure:      c = new Color(0.95f, 0.35f, 0.35f); break;
+            default:                       c = new Color(0.70f, 0.15f, 0.15f); break;
+        }
+        resultTitle.color = c;
+        resultTitle.text = "<b>" + raid.LastOutcome.ToString().ToUpper() + "</b>";
+
+        var cap = raid.LastCaptured;
+        resultPortrait.gameObject.SetActive(cap != null && cap.Portrait != null);
+        if (cap != null) resultPortrait.sprite = cap.Portrait;
+
+        string s = cap != null ? "Captured: " + cap.Label + "   P" + cap.power : "Nothing captured";
+        foreach (var u in raid.LastHurt) s += "\nHurt: " + u.Label + "   now P" + u.power;
+        lossText.text = s;
+
+        briefingText.text = raid.LastResult;
+        statsText.text = "Facility recovering from raid (" + raid.CooldownLeft + ")";
     }
 
     List<UnitData> Squad()
@@ -214,9 +357,10 @@ public class RaidPanel : MonoBehaviour
     {
         if (root == null || !root.activeSelf) return;
 
-        if (showingResult)
+        if (mode == Mode.Running) return;      // animasi sedang jalan, jangan diutak-atik
+
+        if (mode == Mode.Result)
         {
-            briefingText.text = raid.LastResult;
             statsText.text = "Facility recovering from raid (" + raid.CooldownLeft + ")";
             return;
         }
@@ -264,7 +408,7 @@ public class RaidPanel : MonoBehaviour
         t.font = font;
         t.fontSize = size;
         t.alignment = anchor;
-        t.color = Color.white;
+        t.color = UITheme.Active.textColor;
         t.text = s;
         t.horizontalOverflow = HorizontalWrapMode.Wrap;
         t.verticalOverflow = VerticalWrapMode.Overflow;
@@ -277,9 +421,10 @@ public class RaidPanel : MonoBehaviour
     {
         var go = new GameObject("Btn_" + label, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
         go.transform.SetParent(parent, false);
-        go.GetComponent<Image>().color = Normal;
+        
         go.GetComponent<LayoutElement>().preferredHeight = height;
         var b = go.GetComponent<Button>();
+        UITheme.Active.StyleButton(b);
         b.onClick.AddListener(click);
         text = Txt(go.transform, label, 14, TextAnchor.MiddleCenter, 0);
         Stretch(text.rectTransform);

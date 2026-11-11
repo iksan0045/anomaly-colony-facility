@@ -13,15 +13,15 @@ MonoBehaviour:
   m_Name: Archetype_Fighter
   m_EditorClassIdentifier: 
   type: 1
-  portrait: {fileID: 0}
+  portrait: {fileID: 400274801, guid: 662ac1ed07b30c144ad8aa21cd65ffa3, type: 3}
   modelVariants:
   - {fileID: -1728013695380148634, guid: cdeae1dfd6120154994cd27247b83735, type: 3}
   animatorOverride: {fileID: 9100000, guid: 121bfc690b5a7984886dd8e525a9a994, type: 2}
   scaleRange: {x: 0.63, y: 0.63}
-  breedClip: {fileID: 7400000, guid: 8784e1aca9939c843940bf93c10e52aa, type: 2}
-  leaderBreedClip: {fileID: 7400000, guid: cb42ad995a98d2e47b67c89e5cc930e2, type: 2}
-  leaderFacesMe: 0
-  breedTicks: 12
+  breedClip: {fileID: 7400000, guid: 776202c4b33654d438bac56d7ba03fb2, type: 2}
+  leaderBreedClip: {fileID: 7400000, guid: 6cc1f22f242427d428bfde90780007cc, type: 2}
+  leaderFacesMe: 1
+  breedTicks: 25
   powerRange: {x: 4, y: 9}
   fertilityRange: {x: 1, y: 5}
   moveSpeedRange: {x: 0.8, y: 1.6}

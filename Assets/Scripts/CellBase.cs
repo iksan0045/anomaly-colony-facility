@@ -159,6 +159,11 @@ public abstract class CellBase : MonoBehaviour
         GameManager.Instance.NotifyChanged();
     }
 
+    public Vector2 Center { get { return new Vector2(origin.x + size.x / 2f, origin.y + size.y / 2f); } }
+
+    /// Bonus mood per tick yang diberikan cell ini kepada 'target'. Default: tidak ada.
+    public virtual int AuraMoodFor(UnitData target) { return 0; }
+
     void LayoutUnits()
     {
         for (int i = 0; i < units.Count; i++)

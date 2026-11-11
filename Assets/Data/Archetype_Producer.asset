@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Archetype_Producer
   m_EditorClassIdentifier: 
   type: 0
-  portrait: {fileID: 0}
+  portrait: {fileID: 790328555, guid: 662ac1ed07b30c144ad8aa21cd65ffa3, type: 3}
   modelVariants:
   - {fileID: -1728013695380148634, guid: 046a077919a6e2047ae2044a2fb631f6, type: 3}
   - {fileID: -1728013695380148634, guid: 08d667a165ff9d849805122a272e96df, type: 3}
@@ -22,7 +22,7 @@ MonoBehaviour:
   breedClip: {fileID: 7400000, guid: 776202c4b33654d438bac56d7ba03fb2, type: 2}
   leaderBreedClip: {fileID: 7400000, guid: 6cc1f22f242427d428bfde90780007cc, type: 2}
   leaderFacesMe: 1
-  breedTicks: 14
+  breedTicks: 27
   powerRange: {x: 1, y: 5}
   fertilityRange: {x: 1, y: 6}
   moveSpeedRange: {x: 0.8, y: 1.6}

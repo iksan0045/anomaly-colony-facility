@@ -32,4 +32,8 @@ public class SpecialUnit : ScriptableObject
     [Range(1, 10)] public int power = 8;
     [Range(1, 10)] public int fertility = 5;
     public float moveSpeed = 1.2f;
+
+    public bool isFemale;
+    [Tooltip("Tipe tambahan selain 'type' (multiclass). Jangan isi Leader.")]
+    public UnitType[] extraTypes;
 }

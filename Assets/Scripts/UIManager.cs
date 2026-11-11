@@ -28,6 +28,9 @@ public class UIManager : MonoBehaviour
     public RectTransform rightPanel;
     public PaletteEntry[] palette;
 
+    [Header("Tema")]
+    public UITheme theme;
+
     GameManager gm;
     GridManager grid;
     RaidManager raid;
@@ -46,6 +49,10 @@ public class UIManager : MonoBehaviour
 
     // ================= Runtime =================
 
+    void Awake()
+    {
+        if (theme != null) UITheme.Active = theme;
+    }
     void Start()
     {
         gm = GameManager.Instance;
@@ -225,6 +232,7 @@ public class UIManager : MonoBehaviour
 
     public void BuildHierarchy(Camera cam)
     {
+        if (theme != null) UITheme.Active = theme;
         for (int i = transform.childCount - 1; i >= 0; i--)
         {
             var g = transform.GetChild(i).gameObject;
@@ -285,7 +293,7 @@ public class UIManager : MonoBehaviour
         // Panel kanan: detail cell
         rightPanel = Panel("Detail", root, new Vector2(1, 0), new Vector2(1, 1), new Vector2(-280, 0), new Vector2(0, -36), dark);
         VList(rightPanel, 8, 4);
-        selectedInfo = Label(rightPanel, "Info", 14, TextAnchor.UpperLeft, "Klik sebuah cell untuk melihat detail.");
+        selectedInfo = Label(rightPanel, "Info", 14, TextAnchor.UpperLeft, "Click a cell to see its details.");
 
         // Tombol RAID
         Text rl;
@@ -307,6 +315,29 @@ public class UIManager : MonoBehaviour
         return c != null ? c : gameObject.AddComponent<T>();
     }
 
+    [ContextMenu("Apply Theme To Scene UI")]
+    public void ApplyThemeToScene()
+    {
+        var th = theme != null ? theme : UITheme.Active;
+        UITheme.Active = th;
+
+        foreach (var panelName in new[] { "TopBar", "Palette", "Log", "Detail" })
+        {
+            var p = transform.Find(panelName);
+            if (p != null) th.StylePanel(p.GetComponent<Image>());
+        }
+        foreach (var b in GetComponentsInChildren<Button>(true)) th.StyleButton(b);
+        foreach (var t in GetComponentsInChildren<Text>(true)) th.StyleText(t);
+
+        if (palette != null)   // tint tombol cell mengikuti warna cell
+            foreach (var e in palette)
+                e.button.GetComponent<Image>().color = Color.Lerp(GameConfig.ColorOf(e.type), Color.black, 0.45f);
+
+    #if UNITY_EDITOR
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(gameObject.scene);
+    #endif
+    }
+
     RectTransform Panel(string name, Transform parent, Vector2 aMin, Vector2 aMax, Vector2 oMin, Vector2 oMax, Color col)
     {
         var go = new GameObject(name, typeof(RectTransform), typeof(Image));
@@ -316,7 +347,7 @@ public class UIManager : MonoBehaviour
         rt.anchorMax = aMax;
         rt.offsetMin = oMin;
         rt.offsetMax = oMax;
-        go.GetComponent<Image>().color = col;
+        UITheme.Active.StylePanel(go.GetComponent<Image>());
         return rt;
     }
 
@@ -325,10 +356,9 @@ public class UIManager : MonoBehaviour
         var go = new GameObject(name, typeof(RectTransform), typeof(Text));
         go.transform.SetParent(parent, false);
         var t = go.GetComponent<Text>();
-        t.font = F;
+        UITheme.Active.StyleText(t);
         t.fontSize = size;
         t.alignment = anchor;
-        t.color = Color.white;
         t.text = text;
         t.horizontalOverflow = HorizontalWrapMode.Wrap;
         t.verticalOverflow = VerticalWrapMode.Overflow;
@@ -340,9 +370,10 @@ public class UIManager : MonoBehaviour
     {
         var go = new GameObject("Btn_" + label, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
         go.transform.SetParent(parent, false);
-        go.GetComponent<Image>().color = new Color(0.25f, 0.27f, 0.32f, 1f);
+        
         go.GetComponent<LayoutElement>().preferredHeight = height;
         var b = go.GetComponent<Button>();
+        UITheme.Active.StyleButton(b);
         if (onClick != null) b.onClick.AddListener(onClick);
         var t = Label(go.transform, "Text", 14, TextAnchor.MiddleCenter, label);
         Stretch(t.rectTransform, 2);

@@ -21,3 +21,5 @@ MonoBehaviour:
   specialChance: 0.1
   raidTargets:
   - {fileID: 11400000, guid: 4a2097a910464504890e154568eb98c2, type: 2}
+  - {fileID: 11400000, guid: 3c82aadf01410504393360ebb2c73fb2, type: 2}
+  - {fileID: 11400000, guid: fd2c2c5e44cc93a41ae3868e70b7281b, type: 2}

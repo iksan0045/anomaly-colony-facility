@@ -33,8 +33,21 @@ public static class GameConfig
     public const int RaidPowerPerRaid = 2;
     public const int FighterPowerLoss = 2;
 
-    public const float BreedChanceBreeder = 0.6f;   // pasangan Breeder
-    public const float BreedChanceOther   = 0.2f;   // pasangan Producer/Fighter
+    public const float BreedChanceBreeder = 0.8f;   // pasangan Breeder
+    public const float BreedChanceOther   = 0.4f;   // pasangan Producer/Fighter
+    public const int   BreederAuraMood   = 1;    // mood/tick per Breeder di Detention
+    public const float BreederAuraRadius = 3f;   // jarak pusat cell ke pusat cell (satuan tile)
+    public const int   AuraMoodCap       = 3;    // batas total bonus aura per unit per tick
+    public const int BasePowerSpread    = 2;
+    public const int BreederPowerSpread = 1;
+    public const int EnergyPerProducer  = 1;
+    public const int MaterialPerFighter = 2;   // 1 untuk ration sendiri, 1 surplus
+    public const float RaidDurationSeconds = 3f;   // 2-4 detik sesuai selera
+    public const int BreedSpreadNormal     = 2;   // tanpa Leader: -2..+2
+    public const int BreedSpreadLeader     = 1;   // dengan Leader: -1..+1 (lebih stabil)
+    public const int BreedLeaderPowerBonus = 1;
+    public const float LeaderRareMultiplier = 2f;   // bobot entri 'rare' x2 jika ada Leader
+    public const int BreedMoodBonus = 20;   // mood unit bertambah setelah breeding selesai (sukses maupun gagal)
 
     // di ColorOf(UnitType), tambah sebelum default:
 

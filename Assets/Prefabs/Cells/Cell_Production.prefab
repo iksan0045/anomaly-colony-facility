@@ -173,7 +173,7 @@ MonoBehaviour:
   unitSlots:
   - {fileID: 5958096735716115269}
   - {fileID: 2919978395750027078}
-  unitClip: {fileID: -203655887218126122, guid: aa8dcce6f44f64042aa9c4fe9b5fce0d, type: 3}
+  unitClip: {fileID: 3094330708855449807, guid: 40786e67f3ceb094b9c00543f295cb5f, type: 3}
   shareFirstSlot: 0
 --- !u!1 &6775435186001974453
 GameObject:

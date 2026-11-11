@@ -22,6 +22,16 @@ public class RaidManager : MonoBehaviour
     RaidTarget fallback;
 
     GameManager gm { get { return GameManager.Instance; } }
+    public bool InProgress { get; private set; }
+    public RaidOutcome LastOutcome { get; private set; }
+    public UnitData LastCaptured { get; private set; }
+    public readonly List<UnitData> LastHurt = new List<UnitData>();
+
+    RaidTarget pendingTarget;
+    List<UnitData> pendingSquad;
+    RaidProtocol pendingProtocol;
+    RaidOutcome pendingOutcome;
+    float pendingChance;
 
     void Awake() { Instance = this; }
 
@@ -63,6 +73,52 @@ public class RaidManager : MonoBehaviour
             if (r <= 0f) { current = t; return; }
         }
         current = pool[pool.Count - 1];
+    }
+
+    /// Langkah 1: undi hasil. Belum ada yang berubah di game.
+    public bool Begin(List<UnitData> squad, RaidProtocol protocol)
+    {
+        if (InProgress || CooldownLeft > 0 || squad == null || squad.Count == 0) return false;
+
+        pendingTarget   = CurrentTarget;
+        pendingSquad    = new List<UnitData>(squad);
+        pendingProtocol = protocol;
+        pendingChance   = WinChance(SquadPower(squad), protocol);
+        pendingOutcome  = RollOutcome(pendingChance, protocol, pendingTarget);
+        InProgress = true;
+        return true;
+    }
+
+    /// Langkah 2: terapkan hasil (dipanggil UI setelah animasi selesai).
+    public void Finish()
+    {
+        if (!InProgress) return;
+        InProgress = false;
+        LastCaptured = null;
+        LastHurt.Clear();
+
+        var t = pendingTarget;
+        bool won = pendingOutcome == RaidOutcome.Perfect
+                || pendingOutcome == RaidOutcome.Standard
+                || pendingOutcome == RaidOutcome.Costly;
+
+        CooldownLeft = GameConfig.RaidCooldownTicks;
+        string msg = Apply(pendingOutcome, pendingSquad, pendingProtocol, t);
+        LastOutcome = pendingOutcome;
+
+        LastResult = msg
+            + "\n\nSite: " + t.displayName + "  (" + t.anomalyClass + ")"
+            + "\nProtocol: " + pendingProtocol + "   Win chance: " + Mathf.RoundToInt(pendingChance * 100f) + "%"
+            + (won ? "" : "\nThe target is still active. Try again after recovery.");
+        gm.Log(msg);
+
+        if (won)
+        {
+            RaidCount++;     // kekuatan musuh dan unlock target hanya maju saat menang
+            RollTarget();
+        }
+
+        gm.NotifyChanged();
     }
 
     /// Dipakai SaveManager. targetName kosong/tidak ketemu = target baru diundi saat dibutuhkan.
@@ -127,23 +183,7 @@ public class RaidManager : MonoBehaviour
 
     public void Launch(List<UnitData> squad, RaidProtocol protocol)
     {
-        if (CooldownLeft > 0 || squad == null || squad.Count == 0) return;
-
-        var t = CurrentTarget;
-        float chance = WinChance(SquadPower(squad), protocol);
-        RaidOutcome outcome = RollOutcome(chance, protocol, t);
-
-        CooldownLeft = GameConfig.RaidCooldownTicks;
-        string msg = Apply(outcome, squad, protocol, t);   // bisa menambah cooldown (Catastrophic)
-
-        RaidCount++;
-        LastResult = msg
-            + "\n\nSite: " + t.displayName + "  (" + t.anomalyClass + ")"
-            + "\nProtocol: " + protocol + "   Win chance: " + Mathf.RoundToInt(chance * 100f) + "%";
-        gm.Log(msg);
-
-        RollTarget();   // target berikutnya
-        gm.NotifyChanged();
+        if (Begin(squad, protocol)) Finish();
     }
 
     RaidOutcome RollOutcome(float winChance, RaidProtocol p, RaidTarget t)
@@ -227,7 +267,9 @@ public class RaidManager : MonoBehaviour
                   + (p == RaidProtocol.Safe ? 1 : 0)
                   + (t.anomalyClass == AnomalyClass.Armored ? 1 : 0);
         int power = Mathf.Clamp(Random.Range(2, 7) + RaidCount / 2 + bonus, 1, 10);
-        return gm.AddUnit(UnitData.Create(t.RollRewardType(), power));
+        if (special != null) { LastCaptured = gm.AddUnit(UnitData.CreateSpecial(special)); return LastCaptured; }
+        LastCaptured = gm.AddUnit(UnitData.Create(t.RollRewardType(), power));
+        return LastCaptured;
     }
 
     SpecialUnit RollSpecial(RaidTarget t, float chance)
@@ -241,10 +283,11 @@ public class RaidManager : MonoBehaviour
         return pool.Count == 0 ? null : pool[Random.Range(0, pool.Count)];
     }
 
-    static UnitData Hurt(List<UnitData> squad, int amount)
+    UnitData Hurt(List<UnitData> squad, int amount)
     {
         var u = squad[Random.Range(0, squad.Count)];
         u.power = Mathf.Max(1, u.power - amount);
+        if (!LastHurt.Contains(u)) LastHurt.Add(u);
         return u;
     }
 

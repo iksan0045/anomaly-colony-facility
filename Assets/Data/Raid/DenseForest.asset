@@ -19,7 +19,7 @@ MonoBehaviour:
   minRaidCount: 0
   weight: 1
   powerMultiplier: 1
-  rewardTypes: 
+  rewardTypes: 00000000
   powerBonus: 0
   specialDrops: []
   specialChance: 0.1

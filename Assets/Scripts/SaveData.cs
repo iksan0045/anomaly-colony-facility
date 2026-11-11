@@ -17,6 +17,7 @@ public class UnitSave
     public float scale;
     public string displayName;
     public string specialName;  // nama asset SpecialUnit, kosong = unit biasa
+    public string archetypeName;
 }
 
 [Serializable]
