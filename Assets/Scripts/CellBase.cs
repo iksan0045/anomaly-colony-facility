@@ -17,7 +17,7 @@ public abstract class CellBase : MonoBehaviour
     public Vector2Int DefaultSize { get { return GameConfig.DefaultSize(Type); } }
     public int Capacity { get { return GameConfig.Capacity(Type); } }
     public int EnergyCost { get { return GameConfig.EnergyCost(Type); } }
-    public static bool InstantAssign;      // true saat Load: unit langsung di tempat, tidak berjalan
+    public static bool InstantAssign = true;      // true saat Load: unit langsung di tempat, tidak berjalan
     /// Perubahan mood per tick untuk unit di cell ini.
     public virtual int MoodPerTick { get { return -GameConfig.MoodDecayPerTick; } }
 
@@ -67,7 +67,8 @@ public abstract class CellBase : MonoBehaviour
         foreach (var u in units)
         {
             if (u.controller == null || u.controller.visual == null) continue;
-            u.controller.visual.SetClip(ShouldAnimate(u) ? ClipFor(u) : null);
+            bool play = u.Arrived && ShouldAnimate(u);
+            u.controller.visual.SetClip(play ? ClipFor(u) : null);
         }
     }
 
@@ -198,7 +199,7 @@ public abstract class CellBase : MonoBehaviour
         for (int i = 0; i < units.Count; i++)
         {
             var c = units[i].controller;
-            if (c == null) continue;
+            if (c == null || !units[i].Arrived) continue;   // unit yang masih berjalan jangan disnap
 
             Transform slot = null;
             if (unitSlots != null && unitSlots.Length > 0)

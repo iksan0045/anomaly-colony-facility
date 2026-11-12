@@ -16,7 +16,7 @@ MonoBehaviour:
   portrait: {fileID: 790328555, guid: 662ac1ed07b30c144ad8aa21cd65ffa3, type: 3}
   modelVariants:
   - {fileID: -1728013695380148634, guid: 046a077919a6e2047ae2044a2fb631f6, type: 3}
-  - {fileID: -1728013695380148634, guid: 08d667a165ff9d849805122a272e96df, type: 3}
+  - {fileID: -1728013695380148634, guid: 046a077919a6e2047ae2044a2fb631f6, type: 3}
   animatorOverride: {fileID: 9100000, guid: 121bfc690b5a7984886dd8e525a9a994, type: 2}
   scaleRange: {x: 0.7, y: 0.7}
   breedClip: {fileID: 7400000, guid: 776202c4b33654d438bac56d7ba03fb2, type: 2}
@@ -30,3 +30,5 @@ MonoBehaviour:
   - Aria
   - Nova
   - Lumi
+  displayName: 
+  offspring: []

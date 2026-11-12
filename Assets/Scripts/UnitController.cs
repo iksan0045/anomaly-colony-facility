@@ -34,23 +34,24 @@ public class UnitController : MonoBehaviour
         gameObject.SetActive(true);
 
         path = CellBase.InstantAssign ? null : GridManager.Instance.FindPath(transform.position, c);
+        Debug.Log(name + " path=" + (path == null ? "null" : path.Count.ToString()) + " instant=" + CellBase.InstantAssign);   // hapus setelah beres
         if (path == null || path.Count == 0) { Arrive(); return; }
 
         Arrived = false;
         pathIdx = 0;
-        transform.SetParent(GameManager.Instance.UnitRoot, true);   // berjalan di dunia, belum jadi anak cell
+        transform.SetParent(GameManager.Instance.UnitRoot, true);
     }
+
     public void Detach()
     {
+        path = null;
+        Arrived = true;
         cell = null;
+        visual.SetClip(null);
+        transform.SetParent(GameManager.Instance.UnitRoot, true);
+        var p = transform.position;
+        transform.position = new Vector3(p.x, 0f, p.z);
         gameObject.SetActive(true);
-
-        path = CellBase.InstantAssign ? null : GridManager.Instance.FindPath(transform.position, null);
-        if (path == null || path.Count == 0) { Arrive(); return; }
-
-        Arrived = false;
-        pathIdx = 0;
-        transform.SetParent(GameManager.Instance.UnitRoot, true);   // berjalan di dunia, belum jadi anak cell
     }
     void Arrive()
     {
@@ -84,7 +85,7 @@ public class UnitController : MonoBehaviour
     void Update()
     {
         if (cell != null) return;
-
+        if (!Arrived) { WalkStep(); return; }
         if (idleTimer > 0f) { idleTimer -= Time.deltaTime; visual.SetWalking(false); return; }
 
         Vector3 dir = target - transform.position;

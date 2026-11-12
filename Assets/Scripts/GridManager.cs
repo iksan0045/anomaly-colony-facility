@@ -210,26 +210,30 @@ public class GridManager : MonoBehaviour
         if (prefab == null) return;
 
         if (!CanPlace(o, placeSize)) { gm.Log("Can't place here"); return; }
-        int cost = GameConfig.EnergyCost(t);
-        if (!gm.SpendEnergy(cost)) { gm.Log("Not enough Energy  (need " + cost + ")"); return; }
-        int salv = GameConfig.SalvageCost(t);
-        if (gm.Salvage < salv) { gm.Log("Not enough Salvage  (need " + salv + ")"); return; }
-        if (gm.Energy < cost) { gm.Log("Not enough Energy  (need " + cost + ")"); return; }
-        gm.SpendEnergy(cost);
-        gm.SpendSalvage(salv);
+
+        int energy = GameConfig.EnergyCost(t);
+        int salvage = GameConfig.SalvageCost(t);
+        if (gm.Energy < energy)   { gm.Log("Not enough Energy  (need " + energy + ")"); return; }
+        if (gm.Salvage < salvage) { gm.Log("Not enough Salvage  (need " + salvage + ")"); return; }
+
         var cell = Instantiate(prefab, cellRoot);
         cell.Init(o, placeSize);
         cells.Add(cell);
-        FacilityNetwork.Recompute(cells);
         for (int x = o.x; x < o.x + placeSize.x; x++)
         for (int y = o.y; y < o.y + placeSize.y; y++)
             occupancy[x, y] = cell;
 
+        // bayar hanya setelah cell benar-benar terpasang
+        gm.SpendEnergy(energy);
+        gm.SpendSalvage(salvage);
+
+        FacilityNetwork.Recompute(cells);
         gm.OnCellPlaced(cell);
     }
 
     public List<Vector3> FindPath(Vector3 from, CellBase target)
     {
+        if (target == null) return null;
         int n = GameConfig.GridSize;
         var start = new Vector2Int(Mathf.Clamp(Mathf.FloorToInt(from.x), 0, n - 1),
                                 Mathf.Clamp(Mathf.FloorToInt(from.z), 0, n - 1));
