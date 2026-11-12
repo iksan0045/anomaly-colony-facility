@@ -156,6 +156,24 @@ public class RaidPanel : MonoBehaviour
         root.SetActive(false);
     }
 
+    int lastPhase = -1; float flash; Vector2 homePos; bool homeSet;
+    void Update()
+    {
+        if (root == null || !root.activeSelf) return;
+        if (!homeSet) { homePos = winRect.anchoredPosition; homeSet = true; }
+
+        if (mode == Mode.Running && !raid.InProgress) { winRect.anchoredPosition = homePos; ShowResult(); return; }
+        if (mode != Mode.Running) return;
+
+        float p = raid.Progress;
+        int phase = Mathf.Min(2, (int)(p * 3f));
+        if (phase != lastPhase) { lastPhase = phase; phaseText.text = "<b>" + new[] { "SCAN", "ENGAGE", "EXTRACT" }[phase] + "</b>"; flash = 1f; }
+        flash = Mathf.MoveTowards(flash, 0f, Time.unscaledDeltaTime * 3f);
+        flashImg.color = new Color(1f, 1f, 1f, flash * 0.25f);
+        barFill.anchorMax = new Vector2(p, 1f);
+        winRect.anchoredPosition = homePos + (phase == 1 ? Random.insideUnitCircle * 3f : Vector2.zero);
+    }
+
     void OnDestroy()
     {
         if (gm != null) gm.OnChanged -= Refresh;
@@ -165,7 +183,9 @@ public class RaidPanel : MonoBehaviour
 
     public void Open()
     {
-        if (raid.InProgress || raid.CooldownLeft > 0) return;
+        if (raid.InProgress) { root.SetActive(true); SetMode(Mode.Running); BuildSquadStrip(raid.CurrentSquad); return; }
+        if (raid.ResultPending) { root.SetActive(true); ShowResult(); return; }
+        if (raid.CooldownLeft > 0) return;
 
         protocol = RaidProtocol.Safe;          // baris 'showingResult = false;' dihapus
 
@@ -193,7 +213,7 @@ public class RaidPanel : MonoBehaviour
         protocolRow.SetActive(prep);
         protocolDesc.gameObject.SetActive(prep);
         launchBtn.gameObject.SetActive(prep);
-        bottomRow.SetActive(!run);          // Close disembunyikan saat raid berjalan
+        bottomRow.SetActive(true);        // Close disembunyikan saat raid berjalan
         runSection.SetActive(run);
 
         resultTitle.gameObject.SetActive(res);
@@ -212,43 +232,10 @@ public class RaidPanel : MonoBehaviour
     {
         var squad = Squad();
         if (!raid.Begin(squad, protocol)) return;
-        StartCoroutine(RunRaid(squad));
-    }
-    IEnumerator RunRaid(List<UnitData> squad)
-    {
         SetMode(Mode.Running);
-        BuildSquadStrip(squad);
-
-        string[] phases = { "SCAN", "ENGAGE", "EXTRACT" };
-        float total = GameConfig.RaidDurationSeconds, t = 0f, flash = 0f;
-        int last = -1;
-        Vector2 home = winRect.anchoredPosition;
-
-        while (t < total)
-        {
-            t += Time.unscaledDeltaTime;
-            float p = Mathf.Clamp01(t / total);
-            int phase = Mathf.Min(2, (int)(p * 3f));
-
-            if (phase != last) { last = phase; phaseText.text = "<b>" + phases[phase] + "</b>"; flash = 1f; }
-
-            barFill.anchorMax = new Vector2(p, 1f);
-            flash = Mathf.MoveTowards(flash, 0f, Time.unscaledDeltaTime * 3f);
-            flashImg.GetComponent<Image>().color = new Color(1f, 1f, 1f, flash * 0.25f);
-
-            // goyang ringan hanya saat ENGAGE; strip unit berdenyut pelan
-            winRect.anchoredPosition = home + (phase == 1 ? Random.insideUnitCircle * 3f : Vector2.zero);
-            squadStrip.localScale = Vector3.one * (1f + 0.03f * Mathf.Sin(t * 8f));
-            yield return null;
-        }
-
-        winRect.anchoredPosition = home;
-        squadStrip.localScale = Vector3.one;
-        flashImg.GetComponent<Image>().color = Color.clear;
-
-        raid.Finish();
-        ShowResult();
+        BuildSquadStrip(raid.CurrentSquad);
     }
+    
 
     void BuildSquadStrip(List<UnitData> squad)
     {
@@ -303,6 +290,7 @@ public class RaidPanel : MonoBehaviour
 
         briefingText.text = raid.LastResult;
         statsText.text = "Facility recovering from raid (" + raid.CooldownLeft + ")";
+        raid.AckResult();
     }
 
     List<UnitData> Squad()
@@ -339,6 +327,7 @@ public class RaidPanel : MonoBehaviour
     void Toggle(UnitData u)
     {
         if (!selected.Remove(u.id)) selected.Add(u.id);
+        if (!raid.CanDeploy(u)) return;
         Refresh();
     }
 
@@ -348,7 +337,7 @@ public class RaidPanel : MonoBehaviour
         if (!rowLabels.TryGetValue(u.id, out lbl)) return;
         lbl.text = (selected.Contains(u.id) ? "[x] " : "[   ] ") + u.Label
                  + "   P" + u.power + "   Mood " + u.mood
-                 + "   eff " + raid.Contribution(u).ToString("0.#");
+                 + "   eff " + raid.Contribution(u).ToString("0.#") + (raid.CanDeploy(u) ? "" : "  [TIRED]");
     }
 
     // ================= Refresh =================
@@ -370,12 +359,13 @@ public class RaidPanel : MonoBehaviour
         var squad = Squad();
         float power = raid.SquadPower(squad);
         float chance = raid.WinChance(power, protocol);
-
+        bool full = gm.units.Count >= gm.MaxUnits;
         statsText.text = "Enemy power: " + raid.EnemyPower
             + "\nSquad: " + squad.Count + " Fighter(s), effective power " + power.ToString("0.#")
-            + "\nWin chance: <b>" + Mathf.RoundToInt(chance * 100f) + "%</b>";
+            + "\nWin chance: <b>" + Mathf.RoundToInt(chance * 100f) + "%</b>" + (full ? "\n<color=red>Facility full - free a slot first</color>" : "");
 
-        launchBtn.interactable = squad.Count > 0;
+        
+        launchBtn.interactable = squad.Count > 0 && !full;
         safeBtn.GetComponent<Image>().color = protocol == RaidProtocol.Safe ? Highlight : Normal;
         aggressiveBtn.GetComponent<Image>().color = protocol == RaidProtocol.Aggressive ? Highlight : Normal;
         protocolDesc.text = protocol == RaidProtocol.Safe

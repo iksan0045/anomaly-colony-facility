@@ -65,6 +65,7 @@ public class UIManager : MonoBehaviour
 
         var rp = new GameObject("RaidPanel", typeof(RectTransform)).AddComponent<RaidPanel>();
         rp.transform.SetParent(transform, false);
+        
         rp.Build();
         raidButton.onClick.AddListener(() => rp.Open());
         foreach (var p in palette)
@@ -104,7 +105,7 @@ public class UIManager : MonoBehaviour
         topText.text = "Energy: " + gm.Energy + "/" + gm.MaxResource
             + "     Material: " + gm.Materials + "/" + gm.MaxResource
             + "     Units: " + gm.units.Count + "/" + gm.MaxUnits
-            + "     Tick: " + gm.Tick;
+            + "     Tick: " + gm.Tick + "     Salvage: " + gm.Salvage + "/" + gm.MaxResource;
 
         foreach (var p in palette)
         {
@@ -115,11 +116,7 @@ public class UIManager : MonoBehaviour
                   + (grid.Placing.HasValue && grid.Placing.Value == p.type ? "  *" : "")
                 : GameConfig.Label(p.type) + " (locked)";
         }
-
-        raidButton.interactable = raid.CooldownLeft <= 0;
-        raidLabel.text = raid.CooldownLeft > 0
-            ? "RAID  (facility recovering " + raid.CooldownLeft + ")"
-            : "RAID  -  " + raid.CurrentTarget.displayName;
+        
 
         var sel = grid.Selected;
         if (sel == null)
@@ -176,12 +173,13 @@ public class UIManager : MonoBehaviour
             if (ch != selectedInfo.transform) Destroy(ch.gameObject);
         }
 
-        Text unused;
         if (sel != null && sel.units.Count > 0)
         {
+            
             Label(rightPanel, "H1", 15, TextAnchor.MiddleLeft, "<b>Inside cell</b>");
             foreach (var u in new List<UnitData>(sel.units))
             {
+                if (u.away) continue;
                 UnitData unit = u;
                 Text lbl;
                 var b = MakeButton(rightPanel, "Release: " + u.Label, 26, () => sel.RemoveUnit(unit), out lbl);
@@ -261,6 +259,7 @@ public class UIManager : MonoBehaviour
         var left = Panel("Palette", root, new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 200), new Vector2(180, -36), dark);
         VList(left, 6, 4);
         Label(left, "Title", 15, TextAnchor.MiddleLeft, "<b>CELL</b>");
+        left.gameObject.SetActive(false);
         var entries = new List<PaletteEntry>();
         foreach (CellType t in System.Enum.GetValues(typeof(CellType)))
         {
@@ -295,12 +294,26 @@ public class UIManager : MonoBehaviour
         VList(rightPanel, 8, 4);
         selectedInfo = Label(rightPanel, "Info", 14, TextAnchor.UpperLeft, "Click a cell to see its details.");
 
+        Text bl;
+        var buildBtn = MakeButton(root, "BUILD", 50, null, out bl);
+        var brt = buildBtn.GetComponent<RectTransform>();
+        brt.anchorMin = brt.anchorMax = Vector2.zero;
+        brt.pivot = Vector2.zero;
+        brt.sizeDelta = new Vector2(160, 50);
+        brt.anchoredPosition = new Vector2(12, 12);
+
+        var menuGo = new GameObject("BuildMenu", typeof(RectTransform), typeof(BuildMenu));
+        menuGo.transform.SetParent(root, false);
+        var menu = menuGo.GetComponent<BuildMenu>();
+        menu.Build();
+        buildBtn.onClick.AddListener(menu.Toggle);
         // Tombol RAID
         Text rl;
         raidButton = MakeButton(root, "RAID", 50, null, out rl);
         raidLabel = rl;
         raidLabel.fontSize = 18;
         var rrt = raidButton.GetComponent<RectTransform>();
+        raidButton.gameObject.AddComponent<RaidButtonProgress>().Init(raidButton, raidLabel);
         rrt.anchorMin = rrt.anchorMax = new Vector2(0.5f, 0);
         rrt.pivot = new Vector2(0.5f, 0);
         rrt.sizeDelta = new Vector2(320, 50);

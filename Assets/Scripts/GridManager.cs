@@ -212,14 +212,68 @@ public class GridManager : MonoBehaviour
         if (!CanPlace(o, placeSize)) { gm.Log("Can't place here"); return; }
         int cost = GameConfig.EnergyCost(t);
         if (!gm.SpendEnergy(cost)) { gm.Log("Not enough Energy  (need " + cost + ")"); return; }
-
+        int salv = GameConfig.SalvageCost(t);
+        if (gm.Salvage < salv) { gm.Log("Not enough Salvage  (need " + salv + ")"); return; }
+        if (gm.Energy < cost) { gm.Log("Not enough Energy  (need " + cost + ")"); return; }
+        gm.SpendEnergy(cost);
+        gm.SpendSalvage(salv);
         var cell = Instantiate(prefab, cellRoot);
         cell.Init(o, placeSize);
         cells.Add(cell);
+        FacilityNetwork.Recompute(cells);
         for (int x = o.x; x < o.x + placeSize.x; x++)
         for (int y = o.y; y < o.y + placeSize.y; y++)
             occupancy[x, y] = cell;
 
         gm.OnCellPlaced(cell);
+    }
+
+    public List<Vector3> FindPath(Vector3 from, CellBase target)
+    {
+        int n = GameConfig.GridSize;
+        var start = new Vector2Int(Mathf.Clamp(Mathf.FloorToInt(from.x), 0, n - 1),
+                                Mathf.Clamp(Mathf.FloorToInt(from.z), 0, n - 1));
+        Vector3 center = new Vector3(target.transform.position.x, 0f, target.transform.position.z);
+        if (InCell(target, start)) return null;
+
+        var prev = new Vector2Int?[n, n];
+        var seen = new bool[n, n];
+        var q = new Queue<Vector2Int>();
+        q.Enqueue(start);
+        seen[start.x, start.y] = true;
+
+        Vector2Int[] dirs = { new Vector2Int(1, 0), new Vector2Int(-1, 0), new Vector2Int(0, 1), new Vector2Int(0, -1) };
+        Vector2Int? goal = null;
+
+        while (q.Count > 0)
+        {
+            var p = q.Dequeue();
+            if (InCell(target, p)) { goal = p; break; }
+            foreach (var d in dirs)
+            {
+                var nx = p + d;
+                if (nx.x < 0 || nx.y < 0 || nx.x >= n || nx.y >= n || seen[nx.x, nx.y]) continue;
+                if (!InCell(target, nx) && occupancy[nx.x, nx.y] != null) continue;
+                seen[nx.x, nx.y] = true;
+                prev[nx.x, nx.y] = p;
+                q.Enqueue(nx);
+            }
+        }
+
+        if (!goal.HasValue) return new List<Vector3> { center };   // buntu: jalan lurus
+
+        var path = new List<Vector3>();
+        for (Vector2Int? p = goal; p.HasValue; p = prev[p.Value.x, p.Value.y])
+            path.Add(new Vector3(p.Value.x + 0.5f, 0f, p.Value.y + 0.5f));
+        path.Reverse();
+        path.RemoveAt(0);                          // tile awal: unit sudah di sana
+        path[path.Count - 1] = center;             // tujuan akhir = pusat cell
+        return path;
+    }
+
+    static bool InCell(CellBase c, Vector2Int t)
+    {
+        return t.x >= c.origin.x && t.x < c.origin.x + c.size.x
+            && t.y >= c.origin.y && t.y < c.origin.y + c.size.y;
     }
 }

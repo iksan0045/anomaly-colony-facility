@@ -1,4 +1,5 @@
 using UnityEngine;
+using static UnitArchetype;
 
 public enum AnomalyClass { Standard, HighMobility, Armored, Psychic, Unstable }
 
@@ -31,6 +32,7 @@ public class RaidTarget : ScriptableObject
     [Tooltip("Unit spesial yang bisa didapat dari target ini. Tetap daftarkan juga di UnitDatabase.specials (dipakai save/load).")]
     public SpecialUnit[] specialDrops;
     [Tooltip("Peluang dasar dapat unit spesial saat raid sukses. Perfect x2, Safe protocol x1.5.")]
+    public OffspringEntry[] rewardPool;
     [Range(0f, 1f)] public float specialChance = 0.1f;
 
     public UnitType RollRewardType()

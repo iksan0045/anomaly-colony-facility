@@ -20,6 +20,14 @@ public class UnitData : ScriptableObject
     public float scale = 1f;
     public string displayName;
     public SpecialUnit special;
+    public bool Arrived { get { return controller == null || controller.Arrived; } }
+
+    [System.NonSerialized] public CellBase home;     // pos yang ditetapkan pemain
+    [System.NonSerialized] public int offDutyUntil;  // tick; belum boleh kembali bekerja
+    [System.NonSerialized] public bool autoPost;     // pos hasil otomasi (boleh diusir)
+    [System.NonSerialized] public bool holdFree;     // pemain melepas unit ini; jangan diisi otomatis
+
+    [System.NonSerialized] public bool away;   // sedang raid
 
     public static int NextId { get { return nextId; } }
     public static void SetNextId(int n) { nextId = n; }

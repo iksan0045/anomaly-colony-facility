@@ -42,7 +42,27 @@ public static class GameConfig
     public const int BreederPowerSpread = 1;
     public const int EnergyPerProducer  = 1;
     public const int MaterialPerFighter = 2;   // 1 untuk ration sendiri, 1 surplus
-    public const float RaidDurationSeconds = 3f;   // 2-4 detik sesuai selera
+    // Raid
+    public const float RaidDurationSeconds = 15f;
+    public const int   RaidMoodCost        = 8;     // tiap raid melelahkan
+    public const int   MinRaidMood         = 25;    // Fighter di bawah ini tidak bisa dikirim
+    public const float AssignWalkBoost = 1.5f;   // jalan ke cell sedikit lebih cepat dari roaming
+
+    // Mood dan breeding
+    public const int MinBreedMood    = 0;
+
+    
+    public const int BreedEnergyCost = 3;
+    public static float MoodFactor(float mood) { return Mathf.Lerp(0.5f, 1.15f, mood / 100f); }
+
+    // Jaringan
+    public const float HopPenalty       = 0.07f;
+    public const float MinLinkEfficiency = 0.5f;
+    public const float NoHubEfficiency   = 0.7f;    // belum ada Control
+
+    // Salvage (bahan bangun)
+    public const int StartSalvage = 12;             // cukup untuk Detention + Production + Control
+
     public const int BreedSpreadNormal     = 2;   // tanpa Leader: -2..+2
     public const int BreedSpreadLeader     = 1;   // dengan Leader: -1..+1 (lebih stabil)
     public const int BreedLeaderPowerBonus = 1;
@@ -54,7 +74,10 @@ public static class GameConfig
     // Cell yang terbuka dari awal; CONTROL membuka sisanya sesuai urutan
     public static readonly CellType[] StartUnlocked = { CellType.Detention, CellType.Production, CellType.Control };
     public static readonly CellType[] UnlockOrder = { CellType.Storage, CellType.Breeding };
-
+    public const int CrewTiredMood = 35, CrewRecoverMood = 80, CrewWorkMood = 50;
+    public const int BreedRestTicks = 8;
+    public const int RecreationMoodPerTick = 3;
+    
     public static Vector2Int DefaultSize(CellType t)
     {
         switch (t)
@@ -75,6 +98,21 @@ public static class GameConfig
             default: return 0;
         }
     }
+
+    public static int SalvageCost(CellType t)
+    {
+        switch (t)
+        {
+            case CellType.Corridor:   return 1;
+            case CellType.Detention:  return 3;
+            case CellType.Production: return 4;
+            case CellType.Control:    return 5;
+            case CellType.Storage:    return 6;
+            case CellType.Breeding:   return 10;
+            default: return 0;
+        }
+    }
+
 
     public static int EnergyCost(CellType t)
     {

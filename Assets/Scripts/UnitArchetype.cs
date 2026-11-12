@@ -50,6 +50,9 @@ public class UnitArchetype : ScriptableObject
         public bool rare;
     }
 
+
+    
+
     // di dalam class UnitArchetype:
     [Header("Jenis")]
     public string displayName;      // mis. "Elf Healer" (untuk UI/log, opsional)
@@ -74,30 +77,34 @@ public class UnitArchetype : ScriptableObject
         return namePool[Random.Range(0, namePool.Length)];
     }
 
-    public UnitArchetype RollOffspring(bool withLeader)
-    {
-        if (offspring == null || offspring.Length == 0) return null;
+    public UnitArchetype RollOffspring(bool withLeader) { return RollFrom(offspring, withLeader); }
 
+    public static UnitArchetype RollFrom(OffspringEntry[] table, bool boostRare)
+    {
+        if (table == null || table.Length == 0) return null;
         float total = 0f;
-        foreach (var o in offspring) total += OffspringWeight(o, withLeader);
+        foreach (var o in table) total += OffspringWeight(o, boostRare);
         if (total <= 0f) return null;
 
         float r = Random.value * total;
         UnitArchetype last = null;
-        foreach (var o in offspring)
+        foreach (var o in table)
         {
-            float w = OffspringWeight(o, withLeader);
+            float w = OffspringWeight(o, boostRare);
             if (w <= 0f) continue;
             last = o.archetype;
             r -= w;
             if (r <= 0f) return o.archetype;
         }
-        return last;   // jaga-jaga pembulatan float
+        return last;
     }
+    
 
     static float OffspringWeight(OffspringEntry o, bool withLeader)
     {
         if (o == null || o.archetype == null || o.archetype.type == UnitType.Leader) return 0f;
         return o.weight * (withLeader && o.rare ? GameConfig.LeaderRareMultiplier : 1f);
     }
+    
 }
+

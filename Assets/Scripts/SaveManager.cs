@@ -156,6 +156,7 @@ public class SaveManager : MonoBehaviour
                     displayName = u.displayName,
                     specialName = u.special != null ? u.special.name : "",
                     archetypeName = u.archetype != null ? u.archetype.name : "",
+                    homeCell = u.home != null ? grid.cells.IndexOf(u.home) + 1 : 0
                 });
             }
 
@@ -262,10 +263,17 @@ public class SaveManager : MonoBehaviour
                 foreach (int id in d.cells[i].unitIds)
                 {
                     UnitData u;
-                    if (map.TryGetValue(id, out u)) cells[i].AssignUnit(u);
+                    if (map.TryGetValue(id, out u)) cells[i].AssignUnit(u, false);
                 }
                 var br = cells[i] as Cell_Breeding;
                 if (br != null) br.breedProgress = d.cells[i].breedProgress; // setelah assign (assign mereset progres)
+                foreach (var us in d.units)
+                {
+                    UnitData u;
+                    if (!map.TryGetValue(us.id, out u) || us.homeCell <= 0 || us.homeCell > cells.Count) continue;
+                    u.home = cells[us.homeCell - 1];
+                    u.autoPost = !Crew.IsManualRole(u);
+                }
             }
 
             // 5. Log

@@ -17,7 +17,7 @@ public abstract class CellBase : MonoBehaviour
     public Vector2Int DefaultSize { get { return GameConfig.DefaultSize(Type); } }
     public int Capacity { get { return GameConfig.Capacity(Type); } }
     public int EnergyCost { get { return GameConfig.EnergyCost(Type); } }
-
+    public static bool InstantAssign;      // true saat Load: unit langsung di tempat, tidak berjalan
     /// Perubahan mood per tick untuk unit di cell ini.
     public virtual int MoodPerTick { get { return -GameConfig.MoodDecayPerTick; } }
 
@@ -44,6 +44,7 @@ public abstract class CellBase : MonoBehaviour
     /// Subclass override: kapan animasi cell berjalan.
     protected virtual bool IsActive { get { return false; } }
     protected virtual float UnitYaw(UnitData u) { return 0f; }
+     [System.NonSerialized] public int Hops = -1;     // jarak (jumlah cell) ke Control; -1 = tidak tersambung
 
     // ---------- Placement ----------
 
@@ -70,7 +71,7 @@ public abstract class CellBase : MonoBehaviour
         }
     }
 
-
+    public bool TryAssignCheck(UnitData u, out string reason) { return CanAccept(u, out reason); }
 
     void EnsureCollider()
     {
@@ -127,31 +128,55 @@ public abstract class CellBase : MonoBehaviour
         reason = null;
         if (Capacity == 0) { reason = GameConfig.Label(Type) + " cannot hold units"; return false; }
         if (units.Count >= Capacity) { reason = "Cell is full"; return false; }
+        // di CanAccept, setelah pengecekan Capacity:
+        if (u.away) { reason = "Unit is away on a raid"; return false; }
         return true;
     }
 
-    public bool AssignUnit(UnitData u)
+    public bool AssignUnit(UnitData u, bool manual = true)
     {
         string reason;
-        if (!CanAccept(u, out reason)) { GameManager.Instance.Log(reason); return false; }
+        if (!TryAssign(u, manual, out reason))
+        {
+            if (manual) GameManager.Instance.Log(reason);
+            return false;
+        }
+        return true;
+    }
 
-        if (u.cell != null) u.cell.RemoveUnit(u);
+    public bool TryAssign(UnitData u, bool manual, out string reason)
+    {
+        bool resident = manual || u.home == this;
+        if (resident && units.Count >= Capacity)                 // penghuni mengusir tamu
+        {
+            var visitor = units.Find(x => x != u && (x.home != this || x.autoPost));
+            if (visitor != null)
+            {
+                RemoveUnit(visitor, false);
+                if (visitor.autoPost) visitor.home = null;
+            }
+        }
+
+        if (u.away) { reason = "Unit is away on a raid"; return false; }
+        if (!CanAccept(u, out reason)) return false;
+
+        if (u.cell != null) u.cell.RemoveUnit(u, false);
         units.Add(u);
         u.cell = this;
+        if (manual) { u.home = this; u.autoPost = false; u.holdFree = false; }
         if (u.controller != null) u.controller.AttachTo(this);
 
         LayoutUnits();
         OnUnitsChanged();
-        // CellBase.AssignUnit, sebelum NotifyChanged()
-        GameManager.Instance.Log(u.Label + " assigned to " + GameConfig.Label(Type));
         GameManager.Instance.NotifyChanged();
         return true;
     }
 
-    public void RemoveUnit(UnitData u)
+    public void RemoveUnit(UnitData u, bool manual = true)
     {
         if (!units.Remove(u)) return;
         u.cell = null;
+        if (manual) { u.home = null; u.autoPost = false; u.holdFree = true; }   // pemain melepas = tetap bebas
         if (u.controller != null) u.controller.Detach();
 
         LayoutUnits();
@@ -159,12 +184,16 @@ public abstract class CellBase : MonoBehaviour
         GameManager.Instance.NotifyChanged();
     }
 
+   
+    public float Efficiency { get { return FacilityNetwork.Efficiency(this); } }
+
+    
     public Vector2 Center { get { return new Vector2(origin.x + size.x / 2f, origin.y + size.y / 2f); } }
 
     /// Bonus mood per tick yang diberikan cell ini kepada 'target'. Default: tidak ada.
     public virtual int AuraMoodFor(UnitData target) { return 0; }
 
-    void LayoutUnits()
+    public void LayoutUnits()
     {
         for (int i = 0; i < units.Count; i++)
         {

@@ -18,6 +18,7 @@ public class UnitSave
     public string displayName;
     public string specialName;  // nama asset SpecialUnit, kosong = unit biasa
     public string archetypeName;
+    public int homeCell;
 }
 
 [Serializable]
@@ -54,4 +55,6 @@ public class SaveData
     public List<CellSave> cells = new List<CellSave>();
     public string[] log;
     public string raidTarget;
+    public int salvage;
+    public RaidSave raid;
 }

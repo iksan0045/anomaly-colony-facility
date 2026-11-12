@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: Wold Queen
   m_EditorClassIdentifier: 
   displayName: Wolf Queen
-  type: 2
+  portrait: {fileID: 0}
+  type: 1
   unique: 1
   model: {fileID: 0}
   animatorOverride: {fileID: 0}
@@ -25,3 +26,5 @@ MonoBehaviour:
   power: 8
   fertility: 8
   moveSpeed: 1.2
+  isFemale: 1
+  extraTypes: 02000000

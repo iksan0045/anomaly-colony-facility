@@ -15,7 +15,8 @@ public class Cell_Breeding : CellBase
     public float leaderOffsetZ = 0.133f;
     [Tooltip("Jarak kedua unit pada sumbu X jika breeding tanpa Leader.")]
     public float pairSpacing = 0.3f;
-
+    float speedAcc;
+    
     
     void SetVfx(bool on)
     {
@@ -39,9 +40,22 @@ public class Cell_Breeding : CellBase
         return true;
     }
 
-    bool PairValid
+    bool IsRecreation
     {
-        get { return units.Count == 2 && BreederUnit != null; }
+        get { return units.Count == 2 && BreederUnit != null
+                    && units.Exists(u => u.Is(UnitType.Fighter) && !u.Is(UnitType.Breeder)); }
+    }
+    bool PairValid   // pasangan yang menghasilkan anak
+    {
+        get { return units.Count == 2 && BreederUnit != null && !IsRecreation; }
+    }
+    public bool CanHostRecreation
+    {
+        get { return units.Count == 1 && units[0].home == this && units[0].Is(UnitType.Breeder); }
+    }
+    public override int MoodPerTick
+    {
+        get { return IsRecreation ? GameConfig.RecreationMoodPerTick : base.MoodPerTick; }
     }
 
     int Duration
@@ -52,36 +66,55 @@ public class Cell_Breeding : CellBase
 
     public override void OnTick(GameManager gm)
     {
-        if (!PairValid) { breedProgress = 0; return; }
+        bool rec = IsRecreation;
+        if (!PairValid && !rec) { breedProgress = 0; return; }
+
+        float eff = Efficiency;
+        float avgMood = (units[0].mood + units[1].mood) / 2f;
+        if (eff <= 0f || (!rec && avgMood < GameConfig.MinBreedMood)) return;
+        if (eff <= 0f || avgMood < GameConfig.MinBreedMood) return;   // tidak tersambung / terlalu stres
 
         int duration = Duration;
-        if (breedProgress < duration) breedProgress++;
+        if (breedProgress < duration)
+        {
+            speedAcc += eff;                                          // makin jauh dari Control, makin lambat
+            if (speedAcc >= 1f) { speedAcc -= 1f; breedProgress++; }
+        }
         if (breedProgress < duration) return;
 
-        SetVfx(false);   // proses breeding selesai
-
-        if (gm.units.Count >= gm.MaxUnits) return;   // facility penuh: tunggu, jangan keluar dulu
-
-        var partner = units.Find(u => u.type != UnitType.Leader);
-        float chance = partner.type == UnitType.Breeder ? GameConfig.BreedChanceBreeder
-                                                        : GameConfig.BreedChanceOther;
-
+        if (gm.units.Count >= gm.MaxUnits) return;                    // facility penuh: tunggu
+        if (!gm.SpendEnergy(GameConfig.BreedEnergyCost)) return;      // butuh Energy tiap siklus
+        
+        float chance = Mathf.Clamp01(GameConfig.BreedChanceBreeder * GameConfig.MoodFactor(avgMood));
         float roll = Random.value;
-        if (roll < chance && gm.TrySpawnBred(units[0], units[1]))
-            gm.Log("Breeding succeeded, child born, units released.");
-        else
-            gm.Log("Breeding failed, no child, units released.");
-
-        foreach (var u in units)   // mood naik, berhasil maupun gagal
-            u.mood = Mathf.Clamp(u.mood + GameConfig.BreedMoodBonus, 0, 100);
-
-        EjectAll();
+        bool success = roll < chance && gm.TrySpawnBred(units[0], units[1]);
+        if (rec)
+        {
+            foreach (var u in units) u.mood = Mathf.Clamp(u.mood + GameConfig.BreedMoodBonus, 0, 100);
+            gm.Log("Rest session finished: units relaxed, no offspring.");
+            Release(false);
+            return;
+        }
+        if (success)
+        {
+            gm.Log("Breeding succeeded, child born.");
+            foreach (var u in units) u.mood = Mathf.Clamp(u.mood + GameConfig.BreedMoodBonus, 0, 100);   // bonus mood hanya jika berhasil
+        }
+        else gm.Log("Breeding failed.");
+        Release(true);
     }
 
 
-    void EjectAll()
+    void Release(bool all)
     {
-        foreach (var u in units.ToArray()) RemoveUnit(u);   // salinan: list diubah saat iterasi
+        int rest = GameManager.Instance.Tick + GameConfig.BreedRestTicks;
+        foreach (var u in units.ToArray())
+        {
+            if (!all && u.home == this) continue;      // sesi santai: hanya tamu yang pergi
+            if (all) u.offDutyUntil = rest;
+            RemoveUnit(u, false);                      // false: pos tidak terhapus
+        }
+        breedProgress = 0;
     }
 
     protected override void DescribeDetails(StringBuilder sb)

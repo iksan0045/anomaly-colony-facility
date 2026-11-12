@@ -20,6 +20,10 @@ public class GameManager : MonoBehaviour
 
     public event System.Action OnChanged;
     public event System.Action<string> OnLog;
+    public int Salvage { get; private set; }
+    public void AddSalvage(int n) { Salvage = Mathf.Min(MaxResource, Salvage + n); }
+    public bool SpendSalvage(int n) { if (Salvage < n) return false; Salvage -= n; NotifyChanged(); return true; }
+    public void SetSalvage(int n) { Salvage = n; }
 
     readonly HashSet<CellType> unlocked = new HashSet<CellType>();
     int storageCount, controlCount, bonusUnits;
@@ -36,7 +40,7 @@ public class GameManager : MonoBehaviour
         Instance = this;
         UnitData.ResetIds();
         UnitRoot = new GameObject("Units").transform;
-
+        Salvage = GameConfig.StartSalvage;
         Energy = GameConfig.StartEnergy;
         Materials = GameConfig.StartMaterials;
         foreach (var t in GameConfig.StartUnlocked) unlocked.Add(t);
@@ -84,7 +88,7 @@ public class GameManager : MonoBehaviour
     {
         Tick++;
         foreach (var c in GridManager.Instance.cells) c.OnTick(this);
-
+        Crew.Tick(this);
         bool anyStarving = false;
         foreach (var u in units)
         {
@@ -145,6 +149,8 @@ public class GameManager : MonoBehaviour
         int spread = withLeader ? GameConfig.BreedSpreadLeader : GameConfig.BreedSpreadNormal;
         int bonus  = withLeader ? GameConfig.BreedLeaderPowerBonus : 0;
         int power = Mathf.RoundToInt((a.power + b.power) / 2f) + bonus + Random.Range(-spread, spread + 1);
+        float avgMood = (a.mood + b.mood) / 2f;
+        if (avgMood >= 35f) power += 1; else if (avgMood <= 12f) power -= 1;
         int fert  = Mathf.RoundToInt((a.fertility + b.fertility) / 2f) + Random.Range(-1, 2);
 
         // induk Breeder menentukan jenis anak

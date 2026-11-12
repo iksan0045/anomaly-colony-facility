@@ -15,7 +15,7 @@ MonoBehaviour:
   type: 1
   portrait: {fileID: 400274801, guid: 662ac1ed07b30c144ad8aa21cd65ffa3, type: 3}
   modelVariants:
-  - {fileID: -1728013695380148634, guid: cdeae1dfd6120154994cd27247b83735, type: 3}
+  - {fileID: -1728013695380148634, guid: afeb1c6c8afe5784c9918406e1bb3bdc, type: 3}
   animatorOverride: {fileID: 9100000, guid: 121bfc690b5a7984886dd8e525a9a994, type: 2}
   scaleRange: {x: 0.63, y: 0.63}
   breedClip: {fileID: 7400000, guid: 776202c4b33654d438bac56d7ba03fb2, type: 2}
@@ -29,3 +29,5 @@ MonoBehaviour:
   - Kira
   - Rex
   - Vale
+  displayName: 
+  offspring: []

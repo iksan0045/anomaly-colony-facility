@@ -5,11 +5,23 @@ using UnityEngine;
 public enum RaidProtocol { Safe, Aggressive }
 public enum RaidOutcome { Perfect, Standard, Costly, Failure, Catastrophic }
 
-/// Raid dengan persiapan: target (RaidTarget), squad Fighter pilihan, protokol Safe/Aggressive.
-/// Hasil: Perfect / Standard / Costly / Failure / Catastrophic. Unit spesial hanya didapat dari sini.
+/// Status raid yang sedang berjalan. Disimpan SaveManager supaya hasil yang sudah diundi
+/// tidak bisa di-reroll lewat Load.
+[System.Serializable]
+public class RaidSave
+{
+    public bool inProgress;
+    public float elapsed, duration, chance;
+    public int protocol, outcome;
+    public int[] squadIds;
+}
+
+/// Raid berjalan di latar belakang: squad pergi (hilang dari cell dan dunia), progres jalan
+/// sendiri, hasil siap dilihat lewat tombol RAID. Hasil diundi di awal, diterapkan di akhir.
 ///
-/// Rumus win chance: 50% saat power squad = power musuh, +/-50% per selisih rasio, lalu
-/// Safe -10% atau Aggressive +15%, dibatasi 5%..95%. Semua angka ada di method di bawah, mudah di-tuning.
+/// Rumus win chance: 50% saat power efektif squad = power musuh, +/-50% per selisih rasio,
+/// lalu Safe -10% atau Aggressive +15%, dibatasi 5%..95%. Power efektif tiap Fighter dikali
+/// GameConfig.MoodFactor(mood). Target dan RaidCount hanya maju saat MENANG.
 public class RaidManager : MonoBehaviour
 {
     public static RaidManager Instance { get; private set; }
@@ -18,25 +30,40 @@ public class RaidManager : MonoBehaviour
     public int CooldownLeft { get; private set; }
     public string LastResult { get; private set; }
 
+    public bool InProgress { get; private set; }
+    public bool ResultPending { get; private set; }       // hasil siap dilihat, belum dibuka
+    public RaidOutcome LastOutcome { get; private set; }
+    public UnitData LastCaptured { get; private set; }
+    public int LastSalvage { get; private set; }
+    public readonly List<UnitData> LastHurt = new List<UnitData>();
+
+    public List<UnitData> CurrentSquad { get { return pendingSquad; } }
+    public float Progress { get { return InProgress && duration > 0f ? Mathf.Clamp01(elapsed / duration) : 0f; } }
+
     RaidTarget current;
     RaidTarget fallback;
 
-    GameManager gm { get { return GameManager.Instance; } }
-    public bool InProgress { get; private set; }
-    public RaidOutcome LastOutcome { get; private set; }
-    public UnitData LastCaptured { get; private set; }
-    public readonly List<UnitData> LastHurt = new List<UnitData>();
-
     RaidTarget pendingTarget;
-    List<UnitData> pendingSquad;
+    List<UnitData> pendingSquad = new List<UnitData>();
     RaidProtocol pendingProtocol;
     RaidOutcome pendingOutcome;
-    float pendingChance;
+    float pendingChance, elapsed, duration;
+
+    GameManager gm { get { return GameManager.Instance; } }
 
     void Awake() { Instance = this; }
 
+    void Update()
+    {
+        if (!InProgress) return;
+        elapsed += Time.deltaTime;
+        if (elapsed >= duration) Finish();
+    }
+
     /// Dipanggil GameManager tiap tick.
     public void OnTick() { if (CooldownLeft > 0) CooldownLeft--; }
+
+    public void AckResult() { ResultPending = false; }
 
     // ================= Target =================
 
@@ -75,58 +102,52 @@ public class RaidManager : MonoBehaviour
         current = pool[pool.Count - 1];
     }
 
-    /// Langkah 1: undi hasil. Belum ada yang berubah di game.
-    public bool Begin(List<UnitData> squad, RaidProtocol protocol)
-    {
-        if (InProgress || CooldownLeft > 0 || squad == null || squad.Count == 0) return false;
-
-        pendingTarget   = CurrentTarget;
-        pendingSquad    = new List<UnitData>(squad);
-        pendingProtocol = protocol;
-        pendingChance   = WinChance(SquadPower(squad), protocol);
-        pendingOutcome  = RollOutcome(pendingChance, protocol, pendingTarget);
-        InProgress = true;
-        return true;
-    }
-
-    /// Langkah 2: terapkan hasil (dipanggil UI setelah animasi selesai).
-    public void Finish()
-    {
-        if (!InProgress) return;
-        InProgress = false;
-        LastCaptured = null;
-        LastHurt.Clear();
-
-        var t = pendingTarget;
-        bool won = pendingOutcome == RaidOutcome.Perfect
-                || pendingOutcome == RaidOutcome.Standard
-                || pendingOutcome == RaidOutcome.Costly;
-
-        CooldownLeft = GameConfig.RaidCooldownTicks;
-        string msg = Apply(pendingOutcome, pendingSquad, pendingProtocol, t);
-        LastOutcome = pendingOutcome;
-
-        LastResult = msg
-            + "\n\nSite: " + t.displayName + "  (" + t.anomalyClass + ")"
-            + "\nProtocol: " + pendingProtocol + "   Win chance: " + Mathf.RoundToInt(pendingChance * 100f) + "%"
-            + (won ? "" : "\nThe target is still active. Try again after recovery.");
-        gm.Log(msg);
-
-        if (won)
-        {
-            RaidCount++;     // kekuatan musuh dan unlock target hanya maju saat menang
-            RollTarget();
-        }
-
-        gm.NotifyChanged();
-    }
-
     /// Dipakai SaveManager. targetName kosong/tidak ketemu = target baru diundi saat dibutuhkan.
     public void Restore(int count, int cooldown, string targetName)
     {
         RaidCount = count;
         CooldownLeft = cooldown;
         current = AllTargets().FirstOrDefault(t => t != null && t.name == targetName);
+    }
+
+    // ================= Save =================
+
+    public RaidSave Export()
+    {
+        var s = new RaidSave();
+        if (!InProgress) return s;
+        s.inProgress = true;
+        s.elapsed = elapsed;
+        s.duration = duration;
+        s.chance = pendingChance;
+        s.protocol = (int)pendingProtocol;
+        s.outcome = (int)pendingOutcome;
+        s.squadIds = pendingSquad.Select(u => u.id).ToArray();
+        return s;
+    }
+
+    /// Panggil setelah Restore() dan setelah semua unit dibuat (map = id -> UnitData).
+    public void Import(RaidSave s, Dictionary<int, UnitData> map)
+    {
+        InProgress = false;
+        if (s == null || !s.inProgress || s.squadIds == null) return;
+
+        var team = new List<UnitData>();
+        foreach (int id in s.squadIds)
+        {
+            UnitData u;
+            if (map.TryGetValue(id, out u)) { team.Add(u); SendAway(u); }
+        }
+        if (team.Count == 0) return;
+
+        pendingSquad = team;
+        pendingTarget = CurrentTarget;
+        pendingProtocol = (RaidProtocol)s.protocol;
+        pendingOutcome = (RaidOutcome)s.outcome;
+        pendingChance = s.chance;
+        elapsed = s.elapsed;
+        duration = s.duration;
+        InProgress = true;
     }
 
     // ================= Statistik =================
@@ -142,23 +163,29 @@ public class RaidManager : MonoBehaviour
         }
     }
 
-    /// Total power mentah semua Fighter (tanpa efek tipe anomali).
+    /// Total power mentah semua Fighter yang ada di fasilitas (tanpa efek mood/tipe anomali).
     public int FighterPower
     {
-        get { return gm.units.Where(u => u.type == UnitType.Fighter).Sum(u => u.power); }
+        get { return gm.units.Where(u => u.Is(UnitType.Fighter) && !u.away).Sum(u => u.power); }
     }
 
-    /// Kontribusi satu Fighter terhadap target saat ini (setelah efek tipe anomali).
+    /// Fighter boleh dikirim: peran Fighter, ada di fasilitas, dan mood cukup.
+    public bool CanDeploy(UnitData u)
+    {
+        return u.Is(UnitType.Fighter) && !u.away && u.mood >= GameConfig.MinRaidMood;
+    }
+
+    /// Kontribusi satu Fighter terhadap target saat ini (mood dan tipe anomali ikut menghitung).
     public float Contribution(UnitData u)
     {
-        float p = u.power;
+        float p = u.power * GameConfig.MoodFactor(u.mood);
         switch (CurrentTarget.anomalyClass)
         {
             case AnomalyClass.HighMobility:
                 if (u.power < 5) p *= 0.5f;
                 break;
             case AnomalyClass.Psychic:
-                p *= 0.6f + 0.4f * (u.mood / 100f);
+                p *= GameConfig.MoodFactor(u.mood);   // sensitif ganda terhadap mood
                 break;
         }
         return p;
@@ -179,12 +206,98 @@ public class RaidManager : MonoBehaviour
         return Mathf.Clamp(c, 0.05f, 0.95f);
     }
 
-    // ================= Resolve =================
+    // ================= Alur: Begin -> (latar belakang) -> Finish =================
 
-    public void Launch(List<UnitData> squad, RaidProtocol protocol)
+    /// Berangkatkan squad. Hasil diundi sekarang, diterapkan saat progres selesai.
+    public bool Begin(List<UnitData> squad, RaidProtocol protocol)
     {
-        if (Begin(squad, protocol)) Finish();
+        if (InProgress || CooldownLeft > 0 || squad == null) return false;
+        if (gm.units.Count >= gm.MaxUnits)
+        {
+            gm.Log("Facility full - free a unit slot before raiding.");
+            return false;
+        }
+
+        var team = squad.Where(CanDeploy).ToList();
+        if (team.Count == 0) return false;
+
+        pendingTarget = CurrentTarget;
+        pendingSquad = team;
+        pendingProtocol = protocol;
+        pendingChance = WinChance(SquadPower(team), protocol);
+        pendingOutcome = RollOutcome(pendingChance, protocol, pendingTarget);
+
+        duration = GameConfig.RaidDurationSeconds * (protocol == RaidProtocol.Aggressive ? 0.7f : 1f);
+        elapsed = 0f;
+        ResultPending = false;
+
+        foreach (var u in team) SendAway(u);
+        InProgress = true;
+
+        gm.Log("Squad of " + team.Count + " sent to " + pendingTarget.displayName + ".");
+        gm.NotifyChanged();
+        return true;
     }
+
+    void Finish()
+    {
+        if (!InProgress) return;
+        InProgress = false;
+        LastCaptured = null;
+        LastSalvage = 0;
+        LastHurt.Clear();
+
+        var t = pendingTarget;
+        var squad = pendingSquad;
+        foreach (var u in squad) Recall(u);
+
+        bool won = pendingOutcome == RaidOutcome.Perfect
+                || pendingOutcome == RaidOutcome.Standard
+                || pendingOutcome == RaidOutcome.Costly;
+
+        CooldownLeft = GameConfig.RaidCooldownTicks;
+        string msg = Apply(pendingOutcome, squad, pendingProtocol, t);   // bisa menambah cooldown (Catastrophic)
+        AddMood(squad, -GameConfig.RaidMoodCost);                        // setiap raid melelahkan
+
+        LastSalvage = SalvageReward(pendingOutcome, t, LastCaptured != null);
+        if (LastSalvage > 0)
+        {
+            gm.AddSalvage(LastSalvage);
+            msg += " +" + LastSalvage + " Salvage.";
+        }
+
+        LastOutcome = pendingOutcome;
+        LastResult = msg
+            + "\n\nSite: " + t.displayName + "  (" + t.anomalyClass + ")"
+            + "\nProtocol: " + pendingProtocol + "   Win chance: " + Mathf.RoundToInt(pendingChance * 100f) + "%"
+            + (won ? "" : "\nThe target is still active. Try again after recovery.");
+        gm.Log(msg);
+
+        if (won)
+        {
+            RaidCount++;     // kekuatan musuh dan unlock target hanya maju saat menang
+            RollTarget();
+        }
+
+        ResultPending = true;
+        gm.NotifyChanged();
+        // Disarankan: panggil autosave di sini supaya hasil raid tidak bisa dibatalkan lewat Load.
+    }
+
+    void SendAway(UnitData u)
+    {
+        if (u.cell != null) u.cell.RemoveUnit(u, false);
+        u.away = true;
+        if (u.controller != null) u.controller.gameObject.SetActive(false);
+    }
+
+    void Recall(UnitData u)
+    {
+        u.away = false;
+        if (u.controller != null) u.controller.gameObject.SetActive(true);
+    }
+
+    // ================= Hasil =================
 
     RaidOutcome RollOutcome(float winChance, RaidProtocol p, RaidTarget t)
     {
@@ -204,6 +317,23 @@ public class RaidManager : MonoBehaviour
 
         float cat = 0.08f + (unstable ? 0.10f : 0f) + (p == RaidProtocol.Aggressive ? 0.07f : 0f);
         return Random.value < cat ? RaidOutcome.Catastrophic : RaidOutcome.Failure;
+    }
+
+    /// Salvage = bahan bangun cell. Hanya didapat dari raid yang menang.
+    int SalvageReward(RaidOutcome o, RaidTarget t, bool captured)
+    {
+        int s;
+        switch (o)
+        {
+            case RaidOutcome.Perfect:  s = 8; break;
+            case RaidOutcome.Standard: s = 5; break;
+            case RaidOutcome.Costly:   s = 3; break;
+            default: return 0;
+        }
+        s += RaidCount / 3;                                    // target makin jauh = loot makin banyak
+        if (t.anomalyClass == AnomalyClass.Armored) s += 2;
+        if (!captured) s += 2;                                 // fasilitas penuh saat selesai: ganti rugi
+        return s;
     }
 
     string Apply(RaidOutcome o, List<UnitData> squad, RaidProtocol p, RaidTarget t)
@@ -257,18 +387,28 @@ public class RaidManager : MonoBehaviour
     UnitData Capture(RaidTarget t, RaidProtocol p, RaidOutcome o)
     {
         if (gm.units.Count >= gm.MaxUnits) return null;
+        
 
         float sc = t.specialChance * (o == RaidOutcome.Perfect ? 2f : 1f) * (p == RaidProtocol.Safe ? 1.5f : 1f);
         var special = RollSpecial(t, Mathf.Clamp01(sc));
-        if (special != null) return gm.AddUnit(UnitData.CreateSpecial(special));
+        if (special != null)
+        {
+            LastCaptured = gm.AddUnit(UnitData.CreateSpecial(special));
+            return LastCaptured;
+        }
 
         int bonus = t.powerBonus
                   + (o == RaidOutcome.Perfect ? 2 : 0)
                   + (p == RaidProtocol.Safe ? 1 : 0)
                   + (t.anomalyClass == AnomalyClass.Armored ? 1 : 0);
         int power = Mathf.Clamp(Random.Range(2, 7) + RaidCount / 2 + bonus, 1, 10);
-        if (special != null) { LastCaptured = gm.AddUnit(UnitData.CreateSpecial(special)); return LastCaptured; }
-        LastCaptured = gm.AddUnit(UnitData.Create(t.RollRewardType(), power));
+        var arch = UnitArchetype.RollFrom(t.rewardPool, p == RaidProtocol.Safe || o == RaidOutcome.Perfect);
+        var type = arch != null ? arch.type : t.RollRewardType();
+        if (arch != null) power = Mathf.Clamp(power, arch.powerRange.x, arch.powerRange.y);
+
+        var unit = UnitData.Create(type, power);
+        if (arch != null) unit.ApplyArchetype(arch);       // model sama, portrait/nama/stat berbeda
+        LastCaptured = gm.AddUnit(unit);
         return LastCaptured;
     }
 

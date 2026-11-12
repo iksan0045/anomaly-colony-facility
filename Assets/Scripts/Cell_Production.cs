@@ -21,15 +21,21 @@ public class Cell_Production : CellBase
         if (u.Is(UnitType.Fighter))  material += GameConfig.MaterialPerFighter;
     }
 
+    float carryE, carryM;
+
     public override void OnTick(GameManager gm)
     {
+        float eff = Efficiency;
         foreach (var u in units)
         {
             int e, m;
             Output(u, out e, out m);
-            if (e > 0) gm.AddEnergy(e);
-            if (m > 0) gm.AddMaterials(m);
+            carryE += e * eff;
+            carryM += m * eff;
         }
+        int ie = (int)carryE, im = (int)carryM;
+        if (ie > 0) { gm.AddEnergy(ie);    carryE -= ie; }
+        if (im > 0) { gm.AddMaterials(im); carryM -= im; }
     }
 
     protected override void DescribeDetails(StringBuilder sb)

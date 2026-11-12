@@ -9,6 +9,10 @@ public class UnitController : MonoBehaviour
     Vector3 target;
     float idleTimer;
 
+    public bool Arrived { get; private set; } = true;
+    System.Collections.Generic.List<Vector3> path;
+    int pathIdx;
+
     public void Bind(UnitData d, Transform home)
     {
         data = d;
@@ -27,18 +31,54 @@ public class UnitController : MonoBehaviour
     public void AttachTo(CellBase c)
     {
         cell = c;
-        transform.SetParent(c.transform, false);
-        visual.SetWalking(false);
-    }
+        gameObject.SetActive(true);
 
+        path = CellBase.InstantAssign ? null : GridManager.Instance.FindPath(transform.position, c);
+        if (path == null || path.Count == 0) { Arrive(); return; }
+
+        Arrived = false;
+        pathIdx = 0;
+        transform.SetParent(GameManager.Instance.UnitRoot, true);   // berjalan di dunia, belum jadi anak cell
+    }
     public void Detach()
     {
         cell = null;
-        transform.SetParent(GameManager.Instance.UnitRoot, true);
-        var p = transform.position; p.y = 0f; transform.position = p;
-        target = p;
-        idleTimer = 0f;
-        visual.SetClip(null);
+        gameObject.SetActive(true);
+
+        path = CellBase.InstantAssign ? null : GridManager.Instance.FindPath(transform.position, null);
+        if (path == null || path.Count == 0) { Arrive(); return; }
+
+        Arrived = false;
+        pathIdx = 0;
+        transform.SetParent(GameManager.Instance.UnitRoot, true);   // berjalan di dunia, belum jadi anak cell
+    }
+    void Arrive()
+    {
+        path = null;
+        Arrived = true;
+        transform.SetParent(cell.transform, false);   // yang dulu dilakukan AttachTo
+        visual.SetWalking(false);
+        cell.LayoutUnits();
+    }
+
+    void WalkStep()
+    {
+        Vector3 target = path[pathIdx];
+        Vector3 to = target - transform.position;
+        to.y = 0f;
+        float step = data.moveSpeed * GameConfig.AssignWalkBoost * Time.deltaTime;
+
+        if (to.magnitude <= step)
+        {
+            transform.position = new Vector3(target.x, 0f, target.z);
+            if (++pathIdx >= path.Count) Arrive();
+            return;
+        }
+
+        Vector3 dir = to.normalized;
+        transform.position += dir * step;
+        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 10f * Time.deltaTime);
+        visual.SetWalking(true);
     }
 
     void Update()
