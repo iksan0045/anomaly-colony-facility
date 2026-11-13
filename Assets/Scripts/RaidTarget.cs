@@ -34,6 +34,7 @@ public class RaidTarget : ScriptableObject
     [Tooltip("Peluang dasar dapat unit spesial saat raid sukses. Perfect x2, Safe protocol x1.5.")]
     public OffspringEntry[] rewardPool;
     [Range(0f, 1f)] public float specialChance = 0.1f;
+    public const int RaidMaterialReward = 4;
 
     public UnitType RollRewardType()
     {

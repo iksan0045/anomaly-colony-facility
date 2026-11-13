@@ -172,20 +172,20 @@ public class RaidManager : MonoBehaviour
     /// Fighter boleh dikirim: peran Fighter, ada di fasilitas, dan mood cukup.
     public bool CanDeploy(UnitData u)
     {
-        return u.Is(UnitType.Fighter) && !u.away && u.mood >= GameConfig.MinRaidMood;
+        return u.Is(UnitType.Fighter) && !u.away;
     }
 
     /// Kontribusi satu Fighter terhadap target saat ini (mood dan tipe anomali ikut menghitung).
     public float Contribution(UnitData u)
     {
-        float p = u.power * GameConfig.MoodFactor(u.mood);
+        float p = u.power * gm.MoodFactor;
         switch (CurrentTarget.anomalyClass)
         {
             case AnomalyClass.HighMobility:
                 if (u.power < 5) p *= 0.5f;
                 break;
             case AnomalyClass.Psychic:
-                p *= GameConfig.MoodFactor(u.mood);   // sensitif ganda terhadap mood
+                p *= gm.MoodFactor;   // sensitif ganda terhadap mood
                 break;
         }
         return p;
@@ -217,7 +217,7 @@ public class RaidManager : MonoBehaviour
             gm.Log("Facility full - free a unit slot before raiding.");
             return false;
         }
-
+        if (gm.Mood.Value < GameConfig.MinRaidMood) { gm.Log("Morale too low to launch a raid."); return false; }
         var team = squad.Where(CanDeploy).ToList();
         if (team.Count == 0) return false;
 
@@ -275,8 +275,9 @@ public class RaidManager : MonoBehaviour
 
         if (won)
         {
-            RaidCount++;     // kekuatan musuh dan unlock target hanya maju saat menang
-            RollTarget();
+            int mat = RaidTarget.RaidMaterialReward + RaidCount;
+            gm.AddMaterials(mat);
+            msg += " +" + mat + " Material.";
         }
 
         ResultPending = true;

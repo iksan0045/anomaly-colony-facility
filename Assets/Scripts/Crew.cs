@@ -1,15 +1,13 @@
 using UnityEngine;
 
-/// Otomasi kru. Pemain menentukan POS unit (UnitData.home) lewat penugasan manual;
-/// Crew hanya memindahkan unit untuk sementara (istirahat) lalu mengembalikannya ke pos.
+/// Otomasi kru (versi ringan, setelah mood menjadi milik koloni). Tidak ada lagi unit yang
+/// "lelah" dan pergi istirahat sendiri; pemain mengatur siapa di Detention lewat penugasan manual.
 ///
-///   - Producer / Breeder / Leader = peran manual: hanya bekerja di pos yang ditentukan pemain.
+///   - Producer / Breeder / Leader = peran manual: hanya bekerja di pos pilihan pemain.
 ///   - Fighter (non-Breeder/Producer) = otomatis: mengisi slot Production yang kosong (Material),
 ///     kecuali pemain melepasnya sendiri (holdFree).
-///   - Unit lelah (mood <= CrewTiredMood) pergi ke Detention; Fighter juga boleh ke Breeding
-///     yang berisi satu Breeder (sesi santai: hanya menaikkan mood, tidak menghasilkan unit).
-///   - Setelah pulih (mood >= CrewRecoverMood) unit kembali ke pos. Penghuni pos boleh
-///     mengusir "tamu" (unit yang sedang istirahat di pos itu) bila slot penuh.
+///   - Unit yang punya pos tapi sedang tidak di cell (mis. pulang raid atau selesai breeding)
+///     kembali ke posnya. Penghuni pos boleh mengusir unit yang diisi otomatis (autoPost).
 ///
 /// Dipanggil GameManager.DoTick setelah cell.OnTick:  Crew.Tick(this);
 public static class Crew
@@ -26,72 +24,16 @@ public static class Crew
 
         foreach (var u in gm.units)
         {
-            if (u.away) continue;
+            if (u.away || u.cell != null || gm.Tick < u.offDutyUntil) continue;
 
-            bool visitor = u.cell != null && u.cell != u.home;
-            bool inDetention = u.cell != null && u.cell.Type == CellType.Detention;
-            bool relaxing = visitor && u.cell is Cell_Breeding;
-
-            if (u.mood <= GameConfig.CrewTiredMood)
-            {
-                if (!inDetention && !relaxing) TryRest(u, grid, gm);
-            }
-            else if (visitor)
-            {
-                if (u.mood >= GameConfig.CrewRecoverMood && gm.Tick >= u.offDutyUntil) GoHome(u);
-            }
-            else if (u.cell == null && gm.Tick >= u.offDutyUntil && u.mood >= GameConfig.CrewWorkMood)
-            {
-                if (u.home != null) GoHome(u);
-                else if (!IsManualRole(u) && !u.holdFree) AutoWork(u, grid);
-            }
+            if (u.home != null) GoHome(u);
+            else if (!IsManualRole(u) && !u.holdFree) AutoWork(u, grid);
         }
     }
-
-    // ---------- istirahat ----------
-
-    static void TryRest(UnitData u, GridManager grid, GameManager gm)
-    {
-        string why;
-        CellBase best = null;
-        float bestDist = float.MaxValue;
-
-        // 1) Detention terdekat yang masih muat
-        foreach (var c in grid.cells)
-        {
-            if (c.Type != CellType.Detention || c == u.cell || !c.TryAssignCheck(u, out why)) continue;
-            float d = Dist(u, c);
-            if (d < bestDist) { bestDist = d; best = c; }
-        }
-
-        // 2) Fighter: Breeding dengan satu Breeder penghuni (sesi santai)
-        if (best == null && !IsManualRole(u))
-        {
-            foreach (var c in grid.cells)
-            {
-                var br = c as Cell_Breeding;
-                if (br == null || !br.CanHostRecreation || c == u.cell || !c.TryAssignCheck(u, out why)) continue;
-                float d = Dist(u, c);
-                if (d < bestDist) { bestDist = d; best = c; }
-            }
-        }
-
-        if (best == null) return;   // tidak ada tempat: unit tetap lelah (tekanan untuk membangun Detention)
-        if (best.TryAssign(u, false, out why)) gm.Log(u.Label + " is exhausted and went to rest.");
-    }
-
-    static float Dist(UnitData u, CellBase c)
-    {
-        Vector2Int from = u.cell != null ? u.cell.origin : (u.home != null ? u.home.origin : Vector2Int.zero);
-        return Vector2Int.Distance(from, c.origin);
-    }
-
-    // ---------- kembali bekerja ----------
 
     static void GoHome(UnitData u)
     {
         string why;
-        if (u.home == null) return;
         u.home.TryAssign(u, false, out why);   // diam-diam: gagal = coba lagi tick berikutnya
     }
 

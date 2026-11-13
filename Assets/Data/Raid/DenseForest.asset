@@ -22,4 +22,8 @@ MonoBehaviour:
   rewardTypes: 00000000
   powerBonus: 0
   specialDrops: []
+  rewardPool:
+  - archetype: {fileID: 11400000, guid: 3bcde74aebb8db04d8b3f2634b4314e0, type: 2}
+    weight: 1
+    rare: 0
   specialChance: 0.1

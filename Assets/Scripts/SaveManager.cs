@@ -139,6 +139,7 @@ public class SaveManager : MonoBehaviour
                 raidCooldown = raid.CooldownLeft,
                 log = gm.LogLines.ToArray(),
                 raidTarget = raid.CurrentTarget.name,
+                colonyMood = gm.Mood.Value
             };
 
             foreach (var u in gm.units)
@@ -156,7 +157,7 @@ public class SaveManager : MonoBehaviour
                     displayName = u.displayName,
                     specialName = u.special != null ? u.special.name : "",
                     archetypeName = u.archetype != null ? u.archetype.name : "",
-                    homeCell = u.home != null ? grid.cells.IndexOf(u.home) + 1 : 0
+                    homeCell = u.home != null ? grid.cells.IndexOf(u.home) + 1 : 0,
                 });
             }
 
@@ -279,7 +280,7 @@ public class SaveManager : MonoBehaviour
             // 5. Log
             gm.LogLines.Clear();
             if (d.log != null) gm.LogLines.AddRange(d.log);
-
+            gm.Mood.Value = d.colonyMood > 0f ? d.colonyMood : GameConfig.ColonyMoodStart;
             gm.NotifyChanged();
             return true;
         }

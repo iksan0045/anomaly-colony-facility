@@ -70,7 +70,7 @@ public class Cell_Breeding : CellBase
         if (!PairValid && !rec) { breedProgress = 0; return; }
 
         float eff = Efficiency;
-        float avgMood = (units[0].mood + units[1].mood) / 2f;
+        float avgMood = GameManager.Instance.Mood.Value;
         if (eff <= 0f || (!rec && avgMood < GameConfig.MinBreedMood)) return;
         if (eff <= 0f || avgMood < GameConfig.MinBreedMood) return;   // tidak tersambung / terlalu stres
 

@@ -25,13 +25,14 @@ public class Cell_Production : CellBase
 
     public override void OnTick(GameManager gm)
     {
-        float eff = Efficiency;
+        float f = gm.MoodFactor * Efficiency;   // hapus '* Efficiency' jika jaringan belum dipasang
         foreach (var u in units)
         {
+            if (!u.Arrived) continue;
             int e, m;
             Output(u, out e, out m);
-            carryE += e * eff;
-            carryM += m * eff;
+            carryE += e * f;
+            carryM += m * f;
         }
         int ie = (int)carryE, im = (int)carryM;
         if (ie > 0) { gm.AddEnergy(ie);    carryE -= ie; }

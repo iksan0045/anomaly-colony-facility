@@ -47,6 +47,15 @@ public static class GameConfig
     public const int   RaidMoodCost        = 8;     // tiap raid melelahkan
     public const int   MinRaidMood         = 25;    // Fighter di bawah ini tidak bisa dikirim
     public const float AssignWalkBoost = 1.5f;   // jalan ke cell sedikit lebih cepat dari roaming
+    public const int RationIntervalTicks = 5;
+    public const float ColonyMoodStart = 60f, ColonyMoodBase = 50f;
+    public const float MoodPerDetentionUnit = 4f, DetentionMoodCap = 24f;
+    public const float BreederCalm = 2f, BreederCalmCap = 6f, LeaderPresence = 5f;
+    public const float ColonyStarvationPenalty = 25f;
+    public const float ColonyMoodUp = 1.5f, ColonyMoodDown = 2f;
+    public const float RaidMoodShock = -3f;       // tiap raid
+    public const float BreedMoodShock = 3f;       // breeding atau sesi santai berhasil
+    // MinRaidMood dan MinBreedMood sekarang dibandingkan dengan mood KOLONI (saran: 20 dan 25)
 
     // Mood dan breeding
     public const int MinBreedMood    = 0;

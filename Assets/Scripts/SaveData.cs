@@ -57,4 +57,5 @@ public class SaveData
     public string raidTarget;
     public int salvage;
     public RaidSave raid;
+    public float colonyMood;
 }

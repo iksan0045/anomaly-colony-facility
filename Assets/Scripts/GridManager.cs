@@ -104,6 +104,23 @@ public class GridManager : MonoBehaviour
         if (OnModeChanged != null) OnModeChanged();
     }
 
+    public void SeedStartingFacility()
+    {
+        var ctrl = PlaceSeed(CellType.Control, new Vector2Int(3, 3));
+        if (ctrl == null) return;
+        PlaceSeed(CellType.Production, new Vector2Int(ctrl.origin.x + ctrl.size.x, ctrl.origin.y));
+        PlaceSeed(CellType.Detention,  new Vector2Int(ctrl.origin.x, ctrl.origin.y + ctrl.size.y));
+    }
+
+    CellBase PlaceSeed(CellType t, Vector2Int o)
+    {
+        var prefab = PrefabOf(t);
+        if (prefab == null || !CanPlace(o, prefab.DefaultSize)) return null;
+        var cell = PlaceForLoad(t, o, prefab.DefaultSize);
+        if (cell != null) cell.OnPlaced(GameManager.Instance);   // Control awal membuka Storage; Control kedua membuka Breeding
+        FacilityNetwork.Recompute(cells);                        // hapus jika jaringan belum dipasang
+        return cell;
+    }
     public void CancelPlace()
     {
         if (!Placing.HasValue) return;

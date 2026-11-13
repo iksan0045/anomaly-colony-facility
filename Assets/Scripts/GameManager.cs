@@ -13,6 +13,8 @@ public class GameManager : MonoBehaviour
     public int Energy { get; private set; }
     public int Materials { get; private set; }
     public int Tick { get; private set; }
+    public readonly ColonyMood Mood = new ColonyMood();
+    public float MoodFactor { get { return GameConfig.MoodFactor(Mood.Value); } }
 
     public readonly List<UnitData> units = new List<UnitData>();
     public readonly List<string> LogLines = new List<string>();
@@ -48,12 +50,17 @@ public class GameManager : MonoBehaviour
         if (!SaveManager.LoadPending) SpawnStartingUnits();   // saat load, unit datang dari save
     }
 
+    void Start()
+    {
+        { if (!SaveManager.LoadPending) GridManager.Instance.SeedStartingFacility(); }
+    }
+
     public void SpawnStartingUnits()
     {
-        AddUnit(UnitData.Create(UnitType.Producer));
-        AddUnit(UnitData.Create(UnitType.Fighter));
-        AddUnit(UnitData.Create(UnitType.Breeder));
-        AddUnit(UnitData.Create(UnitType.Leader));
+        AddUnit(UnitData.Create(UnitType.Leader, 6));
+        AddUnit(UnitData.Create(UnitType.Producer, 4));
+        AddUnit(UnitData.Create(UnitType.Fighter, 6));
+        AddUnit(UnitData.Create(UnitType.Breeder, 4));
         Log("Facility ready. Build cells, then assign units.");
     }
 
@@ -89,27 +96,20 @@ public class GameManager : MonoBehaviour
         Tick++;
         foreach (var c in GridManager.Instance.cells) c.OnTick(this);
         Crew.Tick(this);
-        bool anyStarving = false;
-        foreach (var u in units)
+        bool anyStarving = starving;                       // status bertahan di antara jatah
+        if (Tick % GameConfig.RationIntervalTicks == 0)
         {
-            // Ration
-            bool fed = Materials >= GameConfig.RationPerTick;
-            if (fed) Materials -= GameConfig.RationPerTick; else anyStarving = true;
-
-            // Mood (delta ditentukan cell tempat unit berada)
-            int before = u.mood;
-            int delta = u.cell != null ? u.cell.MoodPerTick : -GameConfig.MoodDecayPerTick;
-            int aura = 0;
-            foreach (var c in GridManager.Instance.cells) aura += c.AuraMoodFor(u);
-            delta += Mathf.Min(aura, GameConfig.AuraMoodCap);
-            if (!fed) delta -= GameConfig.StarvationMoodPenalty;
-            u.mood = Mathf.Clamp(u.mood + delta, 0, 100);
-
-            if (before >= GameConfig.MoodLowThreshold && u.mood < GameConfig.MoodLowThreshold)
-                Log("Mood low: " + u.Label);
+            anyStarving = false;
+            foreach (var u in units)
+            {
+                if (u.away) continue;
+                if (Materials >= GameConfig.RationPerTick) Materials -= GameConfig.RationPerTick;
+                else anyStarving = true;
+            }
         }
-        if (anyStarving && !starving) Log("Material depleted - units starving!");
+        if (anyStarving && !starving) Log("Material habis! Unit kelaparan.");
         starving = anyStarving;
+        Mood.Tick(this);
 
         if (RaidManager.Instance != null) RaidManager.Instance.OnTick();
         NotifyChanged();
@@ -128,7 +128,8 @@ public class GameManager : MonoBehaviour
         return true;
     }
 
-    // ---------- Unit ----------
+    
+        // ---------- Unit ----------
 
     public UnitData AddUnit(UnitData u)
     {
@@ -149,7 +150,7 @@ public class GameManager : MonoBehaviour
         int spread = withLeader ? GameConfig.BreedSpreadLeader : GameConfig.BreedSpreadNormal;
         int bonus  = withLeader ? GameConfig.BreedLeaderPowerBonus : 0;
         int power = Mathf.RoundToInt((a.power + b.power) / 2f) + bonus + Random.Range(-spread, spread + 1);
-        float avgMood = (a.mood + b.mood) / 2f;
+        float avgMood = Mood.Value;
         if (avgMood >= 35f) power += 1; else if (avgMood <= 12f) power -= 1;
         int fert  = Mathf.RoundToInt((a.fertility + b.fertility) / 2f) + Random.Range(-1, 2);
 
